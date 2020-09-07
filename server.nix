@@ -68,11 +68,11 @@ newpkgs: oldpkgs: {
 
   Carnap-Server = justStaticExecutables ((overrideCabal
     (oldpkgs.callCabal2nix "Carnap-Server" (gitignoreSource ./Carnap-Server) { })
-    (old: let book = ./Carnap-Book; in {
+    (old: let books = builtins.filterSource (path: type: type != "directory" || baseNameOf path != "cache") ./books; in {
       preConfigure = ''
         mkdir -p $out/share
         echo ":: Copying Carnap-Server data"
-        cp -r ${book} $out/share/book
+        cp -r ${books} $out/share/books
 
         echo ":: Copying js in $(pwd)"
         find static/ghcjs/allactions/ -type l -delete
@@ -88,16 +88,12 @@ newpkgs: oldpkgs: {
 
       enableExecutableProfiling = profiling;
       enableLibraryProfiling = profiling;
-      buildDepends = [ book client ];
+      buildDepends = [ books client ];
       executableSystemDepends = [ nixpkgs.diagrams-builder ];
 
       isExecutable = true;
       # Carnap-Server has no tests/they are broken
       doCheck = false;
-      # remove once updated past ghc865
-      # https://github.com/haskell/haddock/issues/979 (additionally disabled by
-      # justStaticExecutables)
-      doHaddock = false;
     })).overrideAttrs (drv: {
       # inspired by
       # https://github.com/NixOS/nixpkgs/blob/91340ae/pkgs/development/tools/pandoc/default.nix

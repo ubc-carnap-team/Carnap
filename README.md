@@ -147,7 +147,7 @@ below, called `dataroot`). Then run:
 $ nix-shell
 [nix-shell:Carnap]$ cabal new-build -f dev all
 [nix-shell:Carnap]$ cd Carnap-Server
-[nix-shell:Carnap-Server]$ APPROOT="http://localhost:3000" DATAROOT="../dataroot" BOOKROOT="../Carnap-Book/" cabal run -f dev Carnap-Server
+[nix-shell:Carnap-Server]$ APPROOT="http://localhost:3000" DATAROOT="../dataroot" BOOKROOT="../books/Carnap-Book/" cabal run -f dev Carnap-Server
 ```
 
 ### Get a shell with GHCJS, for client side development

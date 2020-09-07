@@ -25,7 +25,7 @@ Sessionx.vim
 yesod-devel
 Carnap-Server/config/settings.yml
 dataroot
-Carnap-Book/cache
+books/*/cache
 Carnap-Server/static/tmp/
 Carnap-Server/static/faygen*
 Carnap-GHCJS/test/testpages/
