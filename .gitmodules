@@ -1,0 +1,3 @@
+[submodule "books/forallx-ubc"]
+	path = books/forallx-ubc
+	url = https://github.com/drgilbert/forallx-pandocs

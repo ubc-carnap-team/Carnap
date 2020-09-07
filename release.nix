@@ -28,7 +28,7 @@
         # stuff dynamically under every single one of our "static" directories
         # >:(
         cp -r ${server.out}/share/* /data/
-        mkdir -p /data/book/cache
+        mkdir -p /data/books/*/cache
         mkdir -p /data/data
         exec Carnap-Server
         '';
@@ -57,7 +57,7 @@
         WorkingDir = "/data";
         Env = [
           "DATAROOT=/data/data"
-          "BOOKROOT=/data/book/"
+          "BOOKROOT=/data/books/Carnap-Book/"
         ];
         ExposedPorts = {
           "3000" = {};

@@ -13,7 +13,7 @@ else
 	mkdir -p ../dataroot && \
 	mkdir -p ../Carnap-Book/cache && \
 	APPROOT="http://localhost:3000" DATAROOT="../dataroot" \
-		BOOKROOT="../Carnap-Book/" \
+		BOOKROOT="../books/Carnap-Book/" \
 		cabal run -f dev Carnap-Server
 endif
 
