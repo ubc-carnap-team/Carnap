@@ -126,21 +126,12 @@ returnAssignment coursetitle filename (Entity key val) path = do
 fileToHtml salt path = do Markdown md <- markdownFromFile path
                           let md' = Markdown (filter ((/=) '\r') md) --remove carrage returns from dos files
                           case parseMarkdown yesodDefaultReaderOptions { readerExtensions = carnapPandocExtensions } md' of
-                              Right pd -> do let pd'@(Pandoc meta _) = walk (allFilters salt) pd
+                              Right pd -> do let pd'@(Pandoc meta _) = walk (assignmentFilters salt) pd
                                              return $ Right $ (write pd', meta)
                               Left e -> return $ Left e
         where write = writePandocTrusted yesodDefaultWriterOptions { writerExtensions = carnapPandocExtensions, writerWrapText=WrapPreserve }
 
-allFilters salt = randomizeProblems salt
-                  . makeTreeDeduction
-                  . makeSequent
-                  . makeSynCheckers
-                  . makeProofChecker
-                  . makeTranslate
-                  . makeTruthTables
-                  . makeCounterModelers
-                  . makeQualitativeProblems
-                  . renderFormulas
+assignmentFilters salt = randomizeProblems salt . allFilters
 
 enterPasswordForm = renderBootstrap3 BootstrapBasicForm $ id
             <$> areq textField (bfs ("Access Key" :: Text)) Nothing

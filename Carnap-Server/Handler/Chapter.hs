@@ -4,15 +4,10 @@ import Import
 import Yesod.Markdown
 import Data.Char (isDigit)
 import Filter.Sidenotes
-import Filter.SynCheckers
-import Filter.ProofCheckers
-import Filter.Translate
 import Filter.Diagrams
-import Filter.TruthTables
-import Filter.CounterModelers
-import Filter.Qualitative
+import Util.Handler
 import Text.Pandoc
-import Text.Pandoc.Walk (walkM, walk)
+import Text.Pandoc.Walk (Walkable, walkM, walk)
 import System.Directory (getDirectoryContents)
 import Text.Julius (juliusFile)
 import Text.Hamlet (hamletFile)
@@ -26,8 +21,8 @@ import Control.Monad.State (evalState, evalStateT)
 getChapterR :: Int -> Handler Html
 getChapterR n = do bookdir <- appBookRoot <$> (appSettings <$> getYesod)
                    cdir <- liftIO $ getDirectoryContents bookdir
-                   content <- liftIO $ content n cdir bookdir
-                   case content of
+                   content' <- liftIO $ content n cdir bookdir
+                   case content' of
                        Right (Right html) -> chapterLayout
                             [whamlet|
                                 <div.container>
@@ -58,12 +53,14 @@ getChapterR n = do bookdir <- appBookRoot <$> (appSettings <$> getYesod)
                                                 #{show err}
                                        |]
 
+content :: Int -> [FilePath] -> FilePath -> IO (Either PandocError (Either PandocError Html))
 content n cdir cdirp = do let matches = filter (\x -> (show n ++ ".pandoc") == dropWhile (not . isDigit) x) cdir
                           case matches of
-                              [] -> do print "no matches"
+                              [] -> do print ("no matches"::Text)
                                        fileToHtml cdirp ""
-                              (m:ms)  -> fileToHtml cdirp m
+                              (m:_)  -> fileToHtml cdirp m
 
+fileToHtml :: FilePath -> FilePath -> IO (Either PandocError (Either PandocError Html))
 fileToHtml path m = do md <- markdownFromFile (path </> m)
                        case parseMarkdown yesodDefaultReaderOptions { readerExtensions = exts } md of
                            Right pd -> do pd' <- runFilters path pd
@@ -86,11 +83,13 @@ fileToHtml path m = do md <- markdownFromFile (path </> m)
                     , Ext_fenced_code_attributes
                     ]
 
+runFilters :: (Walkable Block a, Walkable Inline a) => FilePath -> a -> IO a
 runFilters path = let walkNotes y = evalState (walkM makeSideNotes y) 0
-                      walkProblems y = walk (makeSynCheckers . makeProofChecker . makeTranslate . makeTruthTables . makeCounterModelers . makeQualitativeProblems) y
+                      walkProblems y = walk allFilters y
                       walkDiagrams y = evalStateT (walkM (makeDiagrams path) y) []
                    in walkDiagrams . walkNotes . walkProblems
 
+chapterLayout :: ToWidget App a => a -> Handler Html
 chapterLayout widget = do
         master <- getYesod
         mmsg <- getMessage
@@ -100,6 +99,10 @@ chapterLayout widget = do
             toWidgetHead $(juliusFile =<< pathRelativeToCabalPackage "templates/command.julius")
             toWidgetHead $(juliusFile =<< pathRelativeToCabalPackage "templates/status-warning.julius")
             toWidgetHead [julius|var submission_source="book";|]
+            toWidgetHead [hamlet|
+                <script crossorigin src="https://unpkg.com/truth-tree/dist/lib.js" type="application/javascript">
+                <link rel="stylesheet" href="https://unpkg.com/truth-tree/dist/lib.css">
+            |]
             addScript $ StaticR js_popper_min_js
             addScript $ StaticR ghcjs_rts_js
             addScript $ StaticR ghcjs_allactions_lib_js
