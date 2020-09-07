@@ -143,16 +143,7 @@ returnAssignment coursetitle filename (Entity key val) path = do
           tooLate t a Nothing = assignmentMetadataVisibleTill a < Just t
           tooLate t a (Just (Entity _ ex)) = (extensionUntil ex < t) && (assignmentMetadataVisibleTill a < Just t)
 
-allFilters salt = randomizeProblems salt
-                  . makeTreeDeduction
-                  . makeSequent
-                  . makeSynCheckers
-                  . makeProofChecker
-                  . makeTranslate
-                  . makeTruthTables
-                  . makeCounterModelers
-                  . makeQualitativeProblems
-                  . renderFormulas
+assignmentFilters salt = randomizeProblems salt . allFilters
 
 enterPasswordForm = renderBootstrap3 BootstrapBasicForm $ id
             <$> areq textField (bfs ("Access Key" :: Text)) Nothing

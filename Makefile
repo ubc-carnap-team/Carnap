@@ -4,6 +4,10 @@ TARGET := all
 help:
 	@echo "Supported actions: run, shell-ghc, build-ghc, shell-ghcjs, build-ghcjs, tags"
 
+APPROOT := "http://localhost:3000"
+DATAROOT := "../dataroot"
+BOOKROOT := "../books/Carnap-Book/"
+
 run:
 ifeq ($(origin NIX_STORE),undefined)
 	nix-shell --run 'make run'
@@ -12,9 +16,7 @@ else
 	cp -n config/settings-example.yml config/settings.yml && \
 	mkdir -p ../dataroot && \
 	mkdir -p ../Carnap-Book/cache && \
-	APPROOT="http://localhost:3000" DATAROOT="../dataroot" \
-		BOOKROOT="../books/Carnap-Book/" \
-		cabal run -f dev Carnap-Server
+	APPROOT=$(APPROOT) DATAROOT=$(DATAROOT) BOOKROOT=$(BOOKROOT) cabal run -f dev Carnap-Server
 endif
 
 shell-ghc:

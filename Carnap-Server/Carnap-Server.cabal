@@ -47,6 +47,7 @@ library
                      Filter.ProofCheckers
                      Filter.Translate
                      Filter.TruthTables
+                     Filter.TruthTrees
                      Filter.CounterModelers
                      Filter.Qualitative
                      Filter.Util

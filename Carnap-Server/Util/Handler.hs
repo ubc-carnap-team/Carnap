@@ -4,13 +4,24 @@ import Import
 import qualified Data.CaseInsensitive as CI
 import qualified Data.Text.Encoding as TE
 import Yesod.Markdown
-import Text.Pandoc (MetaValue(..),Inline(..), writerExtensions,writerWrapText, WrapOption(..), readerExtensions, Pandoc(..))
+import Text.Pandoc (Block, MetaValue(..),Inline(..), writerExtensions,writerWrapText, WrapOption(..), readerExtensions, Pandoc(..))
 import Text.Pandoc.Walk (walkM, walk)
 import Text.Julius (juliusFile,rawJS)
 import Text.Hamlet (hamletFile)
 import TH.RelativePaths (pathRelativeToCabalPackage)
 import Util.Data
 import Util.Database
+
+import Filter.SynCheckers
+import Filter.ProofCheckers
+import Filter.Translate
+import Filter.TruthTables
+import Filter.TruthTrees
+import Filter.CounterModelers
+import Filter.Qualitative
+import Filter.Sequent
+import Filter.TreeDeduction
+import Filter.RenderFormulas
 
 minimalLayout c = [whamlet|
                   <div.container>
@@ -33,9 +44,23 @@ cleanLayout widget = do
         pc <- widgetToPageContent $(widgetFile "default-layout")
         withUrlRenderer $(hamletFile =<< pathRelativeToCabalPackage "templates/default-layout-wrapper.hamlet")
 
-retrievePandocVal metaval = case metaval of 
+-- * Pandoc
+allFilters :: Block -> Block
+allFilters = makeTreeDeduction
+             . makeCounterModelers
+             . makeProofChecker
+             . makeQualitativeProblems
+             . makeSequent
+             . makeSynCheckers
+             . makeTranslate
+             . makeTreeDeduction
+             . makeTruthTables
+             . makeTruthTrees
+             . renderFormulas
+
+retrievePandocVal metaval = case metaval of
                         Just (MetaInlines ils) -> return $ Just (catMaybes (map fromStr ils))
-                        Just (MetaList list) -> do mcsses <- mapM retrievePandocVal (map Just list) 
+                        Just (MetaList list) -> do mcsses <- mapM retrievePandocVal (map Just list)
                                                    return . Just . concat . catMaybes $ mcsses
                         Nothing -> return Nothing
                         x -> setMessage (toHtml ("bad yaml metadata: " ++ show x)) >> return Nothing
@@ -51,7 +76,7 @@ fileToHtml filters path = do Markdown md <- markdownFromFile path
     where write = writePandocTrusted yesodDefaultWriterOptions { writerExtensions = carnapPandocExtensions, writerWrapText = WrapPreserve }
 
 serveDoc :: (Document -> FilePath -> Handler a) -> Document -> FilePath -> UserId -> Handler a
-serveDoc sendIt doc path creatoruid = case documentScope doc of 
+serveDoc sendIt doc path creatoruid = case documentScope doc of
                                 Private -> do
                                   muid <- maybeAuthId
                                   case muid of Just uid' | uid' == creatoruid -> sendIt doc path
