@@ -44,6 +44,7 @@ library
                      Filter.TreeDeduction
                      Filter.Sequent
                      Filter.SynCheckers
+                     Filter.PrettyProof
                      Filter.ProofCheckers
                      Filter.Translate
                      Filter.TruthTables

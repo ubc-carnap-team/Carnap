@@ -83,7 +83,6 @@ newpkgs: oldpkgs: {
         echo ":: Adding a universal settings file"
         cp config/settings-example.yml config/settings.yml
         cp -r {config,static} $out/share
-        cat config/settings.yml
         '';
 
       enableExecutableProfiling = profiling;

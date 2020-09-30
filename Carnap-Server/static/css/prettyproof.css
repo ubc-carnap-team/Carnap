@@ -1,0 +1,139 @@
+span.premise {
+  padding-left: 0.5em;
+}
+
+/*
+  Remove the final underline of a proof, use therefore symbol instead.
+  Also make formatting a bit prettier.
+*/
+span.conclusion {
+  border-top: none 1pt;
+  padding-left: 0;
+}
+
+/* START: side by side proofs */
+div.side-by-side {
+  display: flex;
+  justify-content: space-around;
+}
+
+div.side-by-side > div {
+  width: 100%;
+}
+
+div.side-by-side > div > p {
+  text-align: center;
+}
+/* END */
+
+/* START: 3 column proofs */
+div.tri-proof {
+  display: flex;
+  justify-content: start;
+  width: 50%;
+  font-size: 20px;
+}
+
+div.tri-proof > div.num {
+  border-right: solid 1px;
+  padding: 0 0.3em;
+  /* To remove margin collapse */
+  display: flex;
+  flex-direction: column;
+}
+div.tri-proof > div.proof {
+  margin-right: 1em;
+}
+
+div.tri-proof > div.justification {
+  /* To remove margin collapse */
+  display: flex;
+  flex-direction: column;
+}
+
+div.tri-proof > div > div {
+  padding: 0.3em;
+}
+
+div.tri-proof div.last-premise {
+  border-bottom: solid 1px;
+  width: fit-content;
+}
+
+div.tri-proof div {
+  width: fit-content;
+}
+
+div.tri-proof div.m-lp {
+  margin-bottom: 1px;
+}
+
+div.tri-proof div.m-sp {
+  margin-top: 0.3em;
+}
+/* END */
+
+/* START: box table formatting and styling */
+table.box-table {
+  text-align: center;
+  border: 1px solid black;
+  border-collapse: collapse;
+}
+
+table.box-table tr:first-child {
+  border-bottom: 1px solid black;
+}
+
+table.box-table td,
+table.box-table th {
+  border-left: 1px solid black;
+  border-right: 1px solid black;
+}
+/* END */
+
+/* START: boxed statement formattting and styling */
+div.boxed-statement {
+  margin: 3rem 0;
+}
+
+div.boxed-statement > div {
+  border: 1px solid black;
+  font-size: 1.4rem;
+  margin: auto;
+  padding: 10px;
+  width: 90%;
+}
+/* END */
+
+/* START: truth table formatting and styling */
+table.truth-table {
+  border-collapse: collapse;
+  text-align: center;
+  width: auto;
+  margin: auto;
+}
+table.truth-table tr:first-child {
+  border-bottom: 1px solid black;
+}
+
+table.truth-table td,
+table.truth-table th {
+  border-left: 1px solid black;
+  border-right: 1px solid black;
+}
+
+table.truth-table td:first-child,
+table.truth-table th:first-child {
+  border-left: none;
+}
+
+table.truth-table td:last-child,
+table.truth-table th:last-child {
+  border-right: none;
+}
+
+table.truth-table th,
+table.truth-table td {
+  padding: 0.4rem 0.8rem;
+}
+/* END */
