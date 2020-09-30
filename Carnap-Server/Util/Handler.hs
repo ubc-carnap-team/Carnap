@@ -10,6 +10,7 @@ import Util.Data
 import Util.Database
 
 import Filter.SynCheckers
+import Filter.PrettyProof
 import Filter.ProofCheckers
 import Filter.Translate
 import Filter.TruthTables
@@ -38,6 +39,7 @@ allFilters = makeTreeDeduction
              . makeTreeDeduction
              . makeTruthTables
              . makeTruthTrees
+             . makePrettyProof
              . renderFormulas
 
 retrievePandocVal metaval = case metaval of

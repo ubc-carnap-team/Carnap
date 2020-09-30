@@ -81,6 +81,7 @@ fileToHtml path m = do md <- markdownFromFile (path </> m)
                     , Ext_multiline_tables
                     , Ext_footnotes
                     , Ext_fenced_code_attributes
+                    , Ext_yaml_metadata_block
                     ]
 
 runFilters :: (Walkable Block a, Walkable Inline a) => FilePath -> a -> IO a
@@ -111,6 +112,7 @@ chapterLayout widget = do
             addStylesheet $ StaticR css_tufte_css
             addStylesheet $ StaticR css_tuftextra_css
             addStylesheet $ StaticR css_exercises_css
+            addStylesheet $ StaticR css_prettyproof_css
             $(widgetFile "default-layout")
             addScript $ StaticR ghcjs_allactions_runmain_js
         withUrlRenderer $(hamletFile =<< pathRelativeToCabalPackage "templates/default-layout-wrapper.hamlet")
