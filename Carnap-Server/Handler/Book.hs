@@ -11,7 +11,7 @@ getBookR = do bookdir <- appBookRoot <$> (appSettings <$> getYesod)
               let ccount = zip (map getTitle $ filter ctitle cdir) [1 ..] 
               let acount = zip3 (map getTitle $ filter atitle  cdir) [1 ..] [length ccount + 1 ..]
               defaultLayout $ do
-                  setTitle $ "The Carnap Book"
+                  setTitle $ "forallx-ubc"
                   $(widgetFile "carnap-book")
     where ctitle x = take 7 x == "chapter"
           atitle x = take 8 x == "appendix"
