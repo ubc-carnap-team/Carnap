@@ -100,10 +100,7 @@ chapterLayout widget = do
             toWidgetHead $(juliusFile =<< pathRelativeToCabalPackage "templates/command.julius")
             toWidgetHead $(juliusFile =<< pathRelativeToCabalPackage "templates/status-warning.julius")
             toWidgetHead [julius|var submission_source="book";|]
-            toWidgetHead [hamlet|
-                <script crossorigin src="https://unpkg.com/truth-tree/dist/lib.js" type="application/javascript">
-                <link rel="stylesheet" href="https://unpkg.com/truth-tree/dist/lib.css">
-            |]
+
             addScript $ StaticR js_popper_min_js
             addScript $ StaticR ghcjs_rts_js
             addScript $ StaticR ghcjs_allactions_lib_js
@@ -115,4 +112,7 @@ chapterLayout widget = do
             addStylesheet $ StaticR css_prettyproof_css
             $(widgetFile "default-layout")
             addScript $ StaticR ghcjs_allactions_runmain_js
+            -- Scripts to insert Rudolf truth-tree widget
+            addStylesheetRemote "https://unpkg.com/truth-tree/dist/lib.css"
+            addScriptRemote "https://unpkg.com/truth-tree/dist/lib.js"  
         withUrlRenderer $(hamletFile =<< pathRelativeToCabalPackage "templates/default-layout-wrapper.hamlet")
