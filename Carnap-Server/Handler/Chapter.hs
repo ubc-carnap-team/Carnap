@@ -112,7 +112,6 @@ chapterLayout widget = do
             addStylesheet $ StaticR css_prettyproof_css
             $(widgetFile "default-layout")
             addScript $ StaticR ghcjs_allactions_runmain_js
-            -- Scripts to insert Rudolf truth-tree widget
-            addStylesheetRemote "https://unpkg.com/truth-tree/dist/lib.css"
+            -- Script to insert Rudolf truth-tree widget
             addScript $ StaticR js_createTrees_js
         withUrlRenderer $(hamletFile =<< pathRelativeToCabalPackage "templates/default-layout-wrapper.hamlet")

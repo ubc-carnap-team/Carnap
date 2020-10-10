@@ -5,4 +5,9 @@ if (document.TruthTrees && document.TruthTrees.length) {
     return document.TruthTrees.forEach((args) => Rudolf.createTree(...args));
   };
   document.body.appendChild(scriptTag);
+
+  const styleTag = document.createElement("link");
+  styleTag.rel = "stylesheet";
+  styleTag.href = "https://unpkg.com/truth-tree@latest/dist/lib.css";
+  document.body.appendChild(styleTag);
 }
