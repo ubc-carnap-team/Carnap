@@ -10,19 +10,22 @@ import Prelude
 
 makeTruthTrees :: Block -> Block
 makeTruthTrees cb@(CodeBlock (_, classes, extra) contents)
-    | "TruthTree" `elem` classes = Div ("", [], []) $ map (activate classes extra) $ intoChunks contents
+    | "TruthTree" `elem` classes = Div ("", [], []) $ map (pushExerciseParams classes extra) $ intoChunks contents
     | otherwise = cb
 makeTruthTrees x = x
 
-activate :: [Text] -> [(Text, Text)] -> Text -> Block
-activate cls _extra chunk
+pushExerciseParams :: [Text] -> [(Text, Text)] -> Text -> Block
+pushExerciseParams cls _extra chunk
     | "Prop" `elem` cls = Div (problemElId, [], []) [
             RawBlock "html" (T.concat
-                [ "<script>Rudolf.createTree('"
+                [ "\n<script>\n"
+                , "document.TruthTrees ||= [];\n"
+                , "document.TruthTrees.push(['" 
                 , problemElId
                 , "', '"
                 , escape . contentOf $ chunk
-                , "');</script>" ])
+                , "']);\n"
+                ,"</script>\n" ])
         ]
     | otherwise = RawBlock "html" "<div>No matching truth tree logic</div>"
     where escape = T.pack . sanitizeForJS . T.unpack
