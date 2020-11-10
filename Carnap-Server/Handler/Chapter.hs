@@ -4,21 +4,16 @@ import Import
 import Yesod.Markdown
 import Data.Char (isDigit)
 import Filter.Sidenotes
-import Filter.SynCheckers
-import Filter.ProofCheckers
-import Filter.Translate
-import Filter.TruthTables
-import Filter.CounterModelers
-import Filter.Qualitative
+import Util.Handler hiding (fileToHtml)
 import Text.Pandoc
-import Text.Pandoc.Walk (Walkable, walkM, walk)
+import Text.Pandoc.Walk (walkM, walk)
 import System.Directory (getDirectoryContents)
 import Text.Julius (juliusFile)
 import Text.Hamlet (hamletFile)
 import TH.RelativePaths (pathRelativeToCabalPackage)
 import qualified Data.CaseInsensitive as CI
 import qualified Data.Text.Encoding as TE
-import Control.Monad.State (evalState, evalStateT)
+import Control.Monad.State (evalState)
 
 -- XXX Fair amount of code-duplication between this and Handler/Book.hs. Perhaps merge those modules.
 
@@ -89,7 +84,7 @@ fileToHtml path m = do md <- markdownFromFile (path </> m)
                     ]
 
 applyFilters= let walkNotes y = evalState (walkM makeSideNotes y) 0
-                  walkProblems y = walk (makeSynCheckers . makeProofChecker . makeTranslate . makeTruthTables . makeCounterModelers . makeQualitativeProblems) y
+                  walkProblems y = walk (allFilters) y
                   in walkNotes . walkProblems
 
 chapterLayout :: ToWidget App a => a -> Handler Html

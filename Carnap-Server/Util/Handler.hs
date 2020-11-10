@@ -49,6 +49,7 @@ cleanLayout widget = do
 allFilters :: Block -> Block
 allFilters = makeTreeDeduction
              . makeCounterModelers
+             . makePrettyProof
              . makeProofChecker
              . makeQualitativeProblems
              . makeSequent
@@ -57,7 +58,6 @@ allFilters = makeTreeDeduction
              . makeTreeDeduction
              . makeTruthTables
              . makeTruthTrees
-             . makePrettyProof
              . renderFormulas
 
 retrievePandocVal metaval = case metaval of

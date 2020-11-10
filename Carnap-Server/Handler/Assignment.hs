@@ -13,15 +13,6 @@ import Data.Time.Clock.POSIX
 import Text.Julius (juliusFile,rawJS)
 import TH.RelativePaths (pathRelativeToCabalPackage)
 import Filter.Randomize
-import Filter.SynCheckers
-import Filter.ProofCheckers
-import Filter.Translate
-import Filter.TruthTables
-import Filter.CounterModelers
-import Filter.Qualitative
-import Filter.Sequent
-import Filter.TreeDeduction
-import Filter.RenderFormulas
 import Util.Handler
 
 getCourseAssignmentR :: Text -> Text -> Handler Html
@@ -87,7 +78,7 @@ returnAssignment coursetitle filename (Entity key val) path = do
                toMS x = x * 1000
            if visibleAt time val mextension || instructorAccess
                then do
-                   ehtml <- liftIO $ fileToHtml (allFilters (hash (show uid ++ path))) path
+                   ehtml <- liftIO $ fileToHtml (assignmentFilters (hash (show uid ++ path))) path
                    unless (visibleAt time val mextension) $ setMessage "Viewing as instructor. Assignment not currently visible to students."
                    case ehtml of
                        Left err -> defaultLayout $ minimalLayout (show err)
@@ -143,7 +134,8 @@ returnAssignment coursetitle filename (Entity key val) path = do
           tooLate t a Nothing = assignmentMetadataVisibleTill a < Just t
           tooLate t a (Just (Entity _ ex)) = (extensionUntil ex < t) && (assignmentMetadataVisibleTill a < Just t)
 
-assignmentFilters salt = randomizeProblems salt . allFilters
+assignmentFilters salt = randomizeProblems salt
+                  . allFilters
 
 enterPasswordForm = renderBootstrap3 BootstrapBasicForm $ id
             <$> areq textField (bfs ("Access Key" :: Text)) Nothing
