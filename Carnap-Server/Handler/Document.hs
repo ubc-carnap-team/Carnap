@@ -125,6 +125,11 @@ getDocumentR ident title = do (Entity key doc, path, creatorid) <- retrieveDoc i
                           addScript $ StaticR ghcjs_allactions_lib_js
                           addScript $ StaticR ghcjs_allactions_out_js
                           maybe (pure [()]) (mapM addScriptRemote) mjs
+
+                          -- Scripts to insert Rudolf truth-tree widget
+                          addStylesheetRemote "https://unpkg.com/truth-tree/dist/lib.css"
+                          addScript $ StaticR js_createTrees_js
+
                           addStylesheet $ StaticR css_tree_css
                           addStylesheet $ StaticR css_proof_css
                           addStylesheet $ StaticR css_exercises_css
