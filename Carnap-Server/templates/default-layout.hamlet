@@ -41,11 +41,11 @@
     ^{widget}
 <div.container>
     <footer>
-        <p>
+        <div.footer-item>
             An
             <a#opentower href="https://open-tower.com"> Open Tower
             \ project. #{appCopyright $ appSettings master}
-        <p>
-            This rendition of forall x is new at UBC as of 2020W2.
+        <div.footer-item>
+            This rendition of forall x is new at UBC as of 2020W2.<br/>
             <a href="https://ubc.ca1.qualtrics.com/jfe/form/SV_0GRj4HPLvchXnHT">
-                Please leave feedback about any issues/improvements you find with our feedback form here.
+                If you have any feedback, suggestions or bugs, click here for our feedback form.

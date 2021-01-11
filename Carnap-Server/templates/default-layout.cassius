@@ -58,6 +58,10 @@ footer
     color:#999
     padding-bottom:20px
 
+footer>div.footer-item
+    display: block
+    padding-bottom: 1em
+
 div#message
     position: absolute
     top: 20px
