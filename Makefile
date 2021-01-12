@@ -14,8 +14,8 @@ ifeq ($(origin NIX_STORE),undefined)
 else
 	cd Carnap-Server && \
 	cp -n config/settings-example.yml config/settings.yml && \
+	for f in ../books/* ; do [[ -d $$f/img ]] && ln -sf ../../$$f/img static/book-img/$$(basename $$f) ; done && \
 	mkdir -p ../dataroot && \
-	mkdir -p ../Carnap-Book/cache && \
 	APPROOT=$(APPROOT) DATAROOT=$(DATAROOT) BOOKROOT=$(BOOKROOT) cabal run -f dev Carnap-Server
 endif
 

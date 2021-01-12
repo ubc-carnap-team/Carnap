@@ -74,6 +74,11 @@ newpkgs: oldpkgs: {
         echo ":: Copying Carnap-Server data"
         cp -r ${books} $out/share/books
 
+        shopt -s nullglob
+        # delete symlinks to images
+        find static/book-img/ -type l -delete
+        for f in ${books}/* ; do [[ -d $f/img ]] && cp -r $f/img static/book-img/$(basename $f) ; done
+
         echo ":: Copying js in $(pwd)"
         find static/ghcjs/allactions/ -type l -delete
         cp ${client.out}/bin/AllActions.jsexe/all.js static/ghcjs/allactions/
