@@ -38,6 +38,7 @@ import System.Log.FastLogger                (defaultBufSize, newStdoutLoggerSet,
 
 -- Import all relevant handler modules here.
 -- Don't forget to add new modules to your cabal file!
+import Handler.Serve
 import Handler.Common
 import Handler.Home
 import Handler.Info
@@ -45,7 +46,6 @@ import Handler.Chapter
 import Handler.Book
 import Handler.User
 import Handler.Command
-import Handler.Hashed
 import Handler.Register
 import Handler.Rule
 import Handler.Instructor
@@ -108,7 +108,7 @@ makeApplication foundation = do
     let datadir = appDataRoot (appSettings foundation)
         zipsettings = if appDevel (appSettings foundation) 
                         then GzipIgnore
-                        else GzipPreCompressed (GzipCacheFolder (datadir </> "gzcache/"))
+                        else GzipPreCompressed GzipCompress
     -- Create the WAI application and apply middlewares
     appPlain <- toWaiAppPlain foundation
     return $ logWare . acceptOverride . autohead . gzip (def {gzipFiles = zipsettings }) . methodOverride . simpleCors $ appPlain

@@ -47,13 +47,24 @@ postCommandR = do
                                 do success <- tryInsert sub
                                    afterInsert success
                             (Just ak, Just asgn) -> do
+                                (mtoken,maccess,mex) <- runDB $ (,,) 
+                                    <$> (getBy $ UniqueAssignmentAccessToken uid ak)
+                                    <*> (getBy $ UniqueAccommodation (assignmentMetadataCourse asgn) uid)
+                                    <*> (getBy $ UniqueExtension ak uid)
                                 let age (Entity _ tok) = floor (diffUTCTime time (assignmentAccessTokenCreatedAt tok))
-                                mtoken <- runDB $ getBy (UniqueAssignmentAccessToken uid ak)
+                                    accommodationFactor = maybe 1 (accommodationTimeFactor . entityVal) maccess
+                                    accommodationMinutes = maybe 0 (accommodationTimeExtraMinutes . entityVal) maccess
+                                    testTime min = floor ((fromIntegral min) * accommodationFactor) + accommodationMinutes
                                 case (mtoken, assignmentMetadataAvailability asgn) of
-                                     (Just tok, Just (ViaPasswordExpiring _ min)) | age tok > 60 * min -> returnJson ("Assignment time limit exceeded" :: String)
-                                     (Just tok, Just (HiddenViaPasswordExpiring _ min)) | age tok > 60 * min -> returnJson ("Assignment time limit exceeded" :: String)
-                                     _ | assignmentMetadataVisibleTill asgn > Just time || assignmentMetadataVisibleTill asgn == Nothing -> tryInsert sub >>= afterInsert
-                                     _ -> returnJson ("Assignment not available" :: String)
+                                     (Just tok, Just (ViaPasswordExpiring _ min)) | age tok > 60 * testTime min 
+                                            -> returnJson ("Assignment time limit exceeded" :: String)
+                                     (Just tok, Just (HiddenViaPasswordExpiring _ min)) | age tok > 60 * testTime min 
+                                            -> returnJson ("Assignment time limit exceeded" :: String)
+                                     _ | assignmentMetadataVisibleTill asgn > Just time -> tryInsert sub >>= afterInsert
+                                       | null (assignmentMetadataVisibleTill asgn) -> tryInsert sub >>= afterInsert
+                                       | (extensionUntil . entityVal <$> mex) > Just time -> tryInsert sub >>= afterInsert
+                                       | otherwise -> returnJson ("Assignment not available" :: String)
+                SaveRule n r | null n -> returnJson ("The rule needs a nonempty name." :: String)
                 SaveRule n r -> do time <- liftIO getCurrentTime
                                    let save = SavedRule r (pack n) time uid
                                    tryInsert save >>= afterInsert
@@ -62,7 +73,6 @@ postCommandR = do
                                                  let oldRules = catMaybes $ map (packageOldRule . entityVal) savedPropRules
                                                      newRules = map (packageNewRule . entityVal) savedRules
                                                      rules = oldRules ++ newRules
-                                                 liftIO $ print $ "sending" ++ (show $ toJSON rules)
                                                  returnJson $ show $ toJSON $ rules
 
 packageOldRule (SavedDerivedRule dr n _ _) = case decodeRule dr of

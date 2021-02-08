@@ -53,6 +53,7 @@ library
                      , Carnap.Languages.PurePropositional.Logic.Gentzen
                      , Carnap.Languages.PurePropositional.Logic.OpenLogic
                      , Carnap.Languages.PurePropositional.Logic.Allen
+                     , Carnap.Languages.PurePropositional.Logic.Equivalence
                      , Carnap.Languages.ModalPropositional.Syntax
                      , Carnap.Languages.ModalPropositional.Parser
                      , Carnap.Languages.ModalPropositional.Logic
@@ -87,15 +88,22 @@ library
                      , Carnap.Languages.PureFirstOrder.Logic.Goldfarb
                      , Carnap.Languages.PureFirstOrder.Logic.Gentzen
                      , Carnap.Languages.PureFirstOrder.Logic.OpenLogic
+                     , Carnap.Languages.PureFirstOrder.Logic.Equivalence
                      , Carnap.Languages.PureSecondOrder.Syntax
                      , Carnap.Languages.PureSecondOrder.Parser
                      , Carnap.Languages.PureSecondOrder.Logic
                      , Carnap.Languages.PureSecondOrder.Logic.Rules
                      , Carnap.Languages.PureSecondOrder.Logic.Carnap
+                     , Carnap.Languages.Arithmetic.Syntax
+                     , Carnap.Languages.Arithmetic.Parser
+                     , Carnap.Languages.Arithmetic.Logic
+                     , Carnap.Languages.Arithmetic.Logic.OpenLogic
                      , Carnap.Languages.SetTheory.Syntax
                      , Carnap.Languages.SetTheory.Parser
+                     , Carnap.Languages.SetTheory.Logic
                      , Carnap.Languages.SetTheory.Logic.Rules
                      , Carnap.Languages.SetTheory.Logic.Carnap
+                     , Carnap.Languages.SetTheory.Logic.OpenLogic
                      , Carnap.Languages.DefiniteDescription.Syntax
                      , Carnap.Languages.DefiniteDescription.Semantics
                      , Carnap.Languages.DefiniteDescription.Util
@@ -107,6 +115,7 @@ library
                      , Carnap.Calculi.NaturalDeduction.Checker
                      , Carnap.Calculi.NaturalDeduction.Parser
                      , Carnap.Calculi.NaturalDeduction.Parser.Util
+                     , Carnap.Calculi.NaturalDeduction.Parser.Hilbert
                      , Carnap.Calculi.NaturalDeduction.Parser.Montague
                      , Carnap.Calculi.NaturalDeduction.Parser.Fitch
                      , Carnap.Calculi.NaturalDeduction.Parser.Lemmon

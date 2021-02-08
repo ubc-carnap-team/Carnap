@@ -7,57 +7,67 @@ function submitAddInstructor(elt,cid) {
 function tryDeleteAssignment (json,fn,ct) {
     if (confirm("Are you sure you want to delete the assignment " + fn + ", and all submitted problems from this assignment?")) {
         deleteAssignment(json,fn,ct);
-        }
     }
+}
 
 function tryDeleteDocument (json) {
     var fn = JSON.parse(json).contents;
-    if (confirm("Are you sure you want to permanently delete the document" + fn + "?")) {
+    if (confirm("Are you sure you want to permanently delete the document " + fn + 
+                "? This will also permanently delete all assignments based on this document and all problems submitted for those assignments.")) {
         deleteDocument(json,fn);
-        }
     }
+}
 
 function tryDeleteCoInstructor (json, ln, fn) {
-    if (confirm("Are you sure you want to remove Co-Instructor " + fn + " " + ln + "? This will permanently delete all assignments for this course created by this co-instructor, and all student work submitted for those assignments")) {
+    if (confirm("Are you sure you want to remove Co-Instructor " + fn + " " + ln 
+                 + "? This will permanently delete all assignments for this course created by this co-instructor, and all student work submitted for those assignments")) {
         deleteCoInstructor(json, ln, fn);
-        }
     }
+}
 
 function tryDeleteCourse (json) {
     var cn = JSON.parse(json).contents;
     if (confirm("Are you sure you want to permanently delete the course " + cn 
         + "? This will unenroll all students, and delete all associated data, including assignments attached to the course.")) {
         deleteCourse(json,cn);
-        }
     }
+}
 
 function tryDropStudent (json) {
     var cn = JSON.parse(json).contents;
     if (confirm("Are you sure you want to drop this student?")) {
         dropStudent(json,cn);
-        }
     }
+}
 
-function modalEditAssignment (id,due,visfrom,vistill,desc) {
+function modalEditAssignment (id,due,visfrom,vistill,release,desc,pass,hide,min) {
     jQuery.noConflict()
     $("#updateAssignment")[0].reset();
     $("#updateAssignment input[name=f1]").val(id);
     var dparts = due.split(" ")
     var fparts = visfrom.split(" ")
     var tparts = vistill.split(" ")
+    var rparts = release.split(" ")
     if (dparts.length > 1) {
         $("#updateAssignment input[name=f2]").val(dparts[0]);
         $("#updateAssignment input[name=f3]").val(dparts[1]);
-        };
+    };
     if (fparts.length > 1) {
         $("#updateAssignment input[name=f4]").val(fparts[0]);
         $("#updateAssignment input[name=f5]").val(fparts[1]);
-        };
+    };
     if (tparts.length > 1) {
         $("#updateAssignment input[name=f6]").val(tparts[0]);
         $("#updateAssignment input[name=f7]").val(tparts[1]);
-        };
-    $("#updateAssignment textarea[name=f8]").val(desc);
+    };
+    if (rparts.length > 1) {
+        $("#updateAssignment input[name=f8]").val(rparts[0]);
+        $("#updateAssignment input[name=f9]").val(rparts[1]);
+    };
+    $("#updateAssignment textarea[name=f10]").val(desc);
+    $("#updateAssignment input[name=f11]").val(pass);
+    $("#updateAssignment input[name=f12]").prop("checked", hide == "True");
+    $("#updateAssignment input[name=f13]").val(min)
     $("#updateAssignmentData").modal({show:true});
 }
 
@@ -71,19 +81,154 @@ function modalEditDocument (id,desc,title,tags) {
     $("#updateDocument input[name=f5]").tagsinput("removeAll");
     $("#updateDocument input[name=f5]").tagsinput("add",tags);
     $("#updateDocumentData").modal({show:true});
+
 }
 
-function modalEditCourse (id,desc,start,end,points) {
+function modalGrantExtension (elt,course,uid) {
     jQuery.noConflict()
-    $("#updateCourse")[0].reset();
+    $("#update" + course)[0].reset();
+    $("#update" + course).off("submit")
+    $("#update" + course + " input[name=f1]").val(uid);
+    $("#update" + course).submit(function(e) {
+        jQuery.ajax({
+            url: '@{InstructorR ident}',
+            type: 'PUT',
+            data: new FormData(this),
+            processData: false,
+            contentType: false,
+            success: function(data) { 
+                $("#update" + course + "Data").modal('hide'); 
+                let gradeDisplay = $(elt).closest("tr").children(".async")
+                gradeDisplay.html("—")
+                gradeDisplay[0].gradeLoaded = false
+                setTimeout(_ => { gradeDisplay[0].update() }, 250)
+            },
+            error: function(data) {
+                let response = data.responseJSON || "no response available"
+                window.alert("Error, couldn't update the extension\n\n" + data.responseJSON)
+            },
+        });
+        e.preventDefault();
+    })
+    $("#update" + course + "Data").modal({show:true})
+    let box = $(elt).closest(".scrollbox")[0]
+    delete box.contents[uid] 
+}
+
+
+function modalEditCourse (ident) {
+    jQuery.noConflict()
+    $("#update" + ident)[0].reset();
+    $("#update" + ident).off("submit")
+    $("#update" + ident).submit(function(e) {
+        jQuery.ajax({
+            url: '@{InstructorR ident}',
+            type: 'PUT',
+            data: new FormData(this),
+            processData: false,
+            contentType: false,
+            success: function(data) {
+                $("#update" + ident + "Data").modal('hide');
+                location.reload() /* lazy. Fix eventually. */
+            },
+            error: function(data) {
+                let response = data.responseJSON || "no response available"
+                window.alert("Error, couldn't update the course:\n\n" + data.responseJSON)
+            },
+        });
+        e.preventDefault();
+    })
+    $("#update" + ident + "Data").modal({show:true});
+}
+
+function modalEditOldCourse (id,desc,start,end,points) {
+    jQuery.noConflict()
+    $("#updateOldCourse" )[0].reset();
+    $("#updateOldCourse").off("submit")
     var sparts = start.split(" ")
     var eparts = end.split(" ")
-    $("#updateCourse input[name=f1]").val(id);
-    $("#updateCourse textarea[name=f2]").val(desc);
-    if (sparts.length > 0) {$("#updateCourse input[name=f3]").val(sparts[0]);}
-    if (eparts.length > 0) {$("#updateCourse input[name=f4]").val(eparts[0]);}
-    $("#updateCourse input[name=f5]").val(points);
-    $("#updateCourseData").modal({show:true});
+    $("#updateOldCourse input[name=f1]").val(id);
+    $("#updateOldCourse textarea[name=f2]").val(desc);
+    if (sparts.length > 0) {$("#updateOldCourse input[name=f3]").val(sparts[0]);}
+    if (eparts.length > 0) {$("#updateOldCourse input[name=f4]").val(eparts[0]);}
+    $("#updateOldCourse input[name=f5]").val(points);
+    $("#updateOldCourse").submit(function(e) {
+        jQuery.ajax({
+            url: '@{InstructorR ident}',
+            type: 'PUT',
+            data: new FormData(this),
+            processData: false,
+            contentType: false,
+            success: function(data) {
+                $("#updateOldCourseData").modal('hide');
+                location.reload() /* lazy. Fix eventually. */
+            },
+            error: function(data) {
+                let response = data.responseJSON || "no response available"
+                window.alert("Error, couldn't update the course:\n\n" + data.responseJSON)
+            },
+        });
+        e.preventDefault();
+    })
+    $("#updateOldCourseData").modal({show:true});
+}
+
+function modalEditAccommodation (cid,uid,json) {
+    jQuery.noConflict()
+    $("#updateAccommodation")[0].reset();
+    $("#updateAccommodation input[name=f1]").val(cid);
+    $("#updateAccommodation input[name=f2]").val(uid);
+    $("#updateAccommodation input[name=f3]").prop('disabled',true);
+    $("#updateAccommodation input[name=f4]").prop('disabled',true);
+    $("#updateAccommodation input[name=f5]").prop('disabled',true);
+    jQuery.ajax({
+        url: '@{InstructorQueryR ident}',
+        type: 'POST',
+        contentType: "application/json",
+        data: json,
+        success: function(data) {
+            $("#updateAccommodation input[name=f3]").val(data[0]);
+            $("#updateAccommodation input[name=f4]").val(data[1]);
+            $("#updateAccommodation input[name=f5]").val(data[2]);
+            $("#updateAccommodation input[name=f3]").prop('disabled',false);
+            $("#updateAccommodation input[name=f4]").prop('disabled',false);
+            $("#updateAccommodation input[name=f5]").prop('disabled',false);
+        },
+        error: function(data) {
+            console.log("error, couldn't retrieve accessibility data")
+        },
+    });
+    $("#updateAccommodationData").modal({show:true});
+}
+
+function modalResetTimer (ident, json) {
+    jQuery.noConflict()
+    let themodal = $("#deleteModalFor" + ident)
+    themodal.modal({show:true})
+    $("#deleteModalFor" + ident).modal({show:true})
+    $("#deleteModalFor" + ident + " tbody td:nth-child(2)").html("—")
+    $("#deleteModalFor" + ident + " tbody td:nth-child(3)").html("—")
+    jQuery.ajax({
+        url: '@{InstructorQueryR ident}',
+        type: 'POST',
+        contentType: "application/json",
+        data: json,
+        success: function(data) {
+            data.forEach(datum => {
+                let del = document.createElement("button")
+                del.setAttribute("class", "btn btn-sm btn-danger")
+                del.setAttribute("type", "button")
+                del.setAttribute("title", "Reset the test timer for this assignment")
+                del.innerHTML = "Reset"
+                del.onclick = _ => { resetTimer(JSON.stringify(datum[2]),themodal) }
+                $("#token-row-" + datum[0] + " td:nth-child(2)").html(datum[1])
+                $("#token-row-" + datum[0] + " td:nth-child(3)").html(del)
+            })
+        },
+        error: function(data) {
+            console.log("error, couldn't retrieve access token data")
+        },
+    });
 }
 
 function deleteCoInstructor (json,ln,fn) {
@@ -96,12 +241,13 @@ function deleteCoInstructor (json,ln,fn) {
             var el = $("#Co-Instructor-" + $.escapeSelector(ln) + "-" + $.escapeSelector(fn));
             el.remove();
             window.alert("Removed Co-Instructor " + fn + " " + ln);
-            },
+        },
         error: function(data) {
-            window.alert("Error, couldn't remove co-instructor " + fn + " " + ln)
-            },
-        });
-    };
+            let response = data.responseJSON || "no response available"
+            window.alert("Error, couldn't remove the co-instructor\n\n" + data.responseJSON)
+        },
+    });
+};
 
 function queryGrade (json, callback) {
     jQuery.ajax({
@@ -112,9 +258,9 @@ function queryGrade (json, callback) {
         success: callback,
         error: function(data) {
             console.log("error, couldn't retrieve grade")
-            },
-        });
-    };
+        },
+    });
+};
 
 function deleteAssignment (json,fn,ct) {
     jQuery.ajax({
@@ -126,12 +272,13 @@ function deleteAssignment (json,fn,ct) {
             var el = $("#assignment-" + $.escapeSelector(ct) + "-" + $.escapeSelector(fn));
             el.remove();
             window.alert("Deleted the assignment " + fn);
-            },
+        },
         error: function(data) {
-            window.alert("Error, couldn't delete the assignment " + fn)
-            },
-        });
-    };
+            let response = data.responseJSON || "no response available"
+            window.alert("Error, couldn't delete the assignment " + fn +"\n\n" + data.responseJSON)
+        },
+    });
+};
 
 function deleteDocument (json,fn) {
     jQuery.ajax({
@@ -143,12 +290,13 @@ function deleteDocument (json,fn) {
             var el = $("#document-" + $.escapeSelector(fn));
             el.remove();
             window.alert("Deleted the assignment " + fn);
-            },
+        },
         error: function(data) {
-            window.alert("Error, couldn't delete the assignment " + fn)
-            },
-        });
-    };
+            let response = data.responseJSON || "no response available"
+            window.alert("Error, couldn't delete the document " + fn + "\n\n" + data.responseJSON)
+        },
+    });
+};
 
 function dropStudent (json,sident) {
     jQuery.ajax({
@@ -159,12 +307,30 @@ function dropStudent (json,sident) {
         success: function(data) {
             var el = $("#student-" + $.escapeSelector(sident));
             el.remove();
-            },
+        },
         error: function(data) {
-            window.alert("Error, couldn't drop the student " + sident)
-            },
-        });
-    };
+            let response = data.responseJSON || "no response available"
+            window.alert("Error, couldn't drop the student " + sident + "\n\n" + data.responseJSON)
+        },
+    });
+};
+
+function resetTimer (json, themodal) {
+    jQuery.ajax({
+        url: '@{InstructorR ident}',
+        type: 'DELETE',
+        contentType: "application/json",
+        data: json,
+        success: function(data) {
+            window.alert("The timer has been reset.")
+            themodal.modal("hide")
+        },
+        error: function(data) {
+            let response = data.responseJSON || "no response available"
+            window.alert("Error, couldn't reset the timer" + "\n\n" + data.responseJSON)
+        },
+    });
+};
 
 function deleteCourse (json,cn) {
     var tag = cn.replace(/ /g,'_')
@@ -179,12 +345,13 @@ function deleteCourse (json,cn) {
             el1.remove();
             el2.remove();
             window.alert("Deleted the course " + cn);
-            },
+        },
         error: function(data) {
-            window.alert("Error, couldn't delete the course " + cn)
-            },
-        });
-    };
+            let response = data.responseJSON || "no response available"
+            window.alert("Error, couldn't delete the course " + cn + "\n\n" + data.responseJSON)
+        },
+    });
+};
 
 
 function deleteProblemSet (json) {
@@ -200,12 +367,13 @@ function deleteProblemSet (json) {
             var el = $("#problem-set-" + $.escapeSelector(course) + "-" + pn.toString());
             el.remove();
             window.alert("Deleted problem set " + pn.toString());
-            },
+        },
         error: function(data) {
-            window.alert("Error, couldn't delete problem set " + pn.toString())
-            },
-        });
-    };
+            let response = data.responseJSON || "no response available"
+            window.alert("Error, couldn't delete problem set " + pn.toString() + "\n\n" + data.responseJSON)
+        },
+    });
+};
 
 $("#updateAssignment").submit(function(e) {
     jQuery.ajax({
@@ -217,29 +385,31 @@ $("#updateAssignment").submit(function(e) {
         success: function(data) {
             $("#updateAssignmentData").modal('hide');
             location.reload()
-            },
+        },
         error: function(data) {
-            window.alert("Error, couldn't update the assignment ")
-            },
-        });
+            let response = data.responseJSON || "no response available"
+            window.alert("Error, couldn't update the assignment:\n\n" + data.responseJSON)
+        },
+    });
     e.preventDefault();
 })
 
-$("#updateCourse").submit(function(e) {
+
+$("#updateAccommodation").submit(function(e) {
     jQuery.ajax({
         url: '@{InstructorR ident}',
         type: 'PUT',
         data: new FormData(this),
         processData: false,
         contentType: false,
-        success: function(data) {
-            $("#updateCourseData").modal('hide');
-            location.reload() /* lazy. Fix eventually. */
-            },
+        success: function(data) { 
+            $("#updateAccommodationData").modal('hide'); 
+        },
         error: function(data) {
-            window.alert("Error, couldn't update the course")
-            },
-        });
+            let response = data.responseJSON || "no response available"
+            window.alert("Error, couldn't update the accomodation:\n\n" + data.responseJSON)
+        },
+    });
     e.preventDefault();
 })
 
@@ -262,11 +432,12 @@ $("#updateDocument").submit(function(e) {
         success: function(data) {
             $("#updateDocumentData").modal('hide');
             location.reload()
-            },
+        },
         error: function(data) {
-            window.alert("Error, couldn't update the course")
-            },
-        });
+            let response = data.responseJSON || "no response available"
+            window.alert("Error, couldn't update the document:\n\n" + data.responseJSON)
+        },
+    });
     e.preventDefault();
 })
 
@@ -274,11 +445,8 @@ function consolidateScores (scores) {
     let consolidated = {}
     for (const score of scores) {
         let label
-        if (score[0].Left) {
-            label = assignmentLookup[score[0].Left].title
-        } else {
-            label = "Problem Set " + score[0].Right
-        }
+        if (score[0].Left) label = assignmentLookup[score[0].Left].title
+        else label = "Problem Set " + score[0].Right
         consolidated[label] = (consolidated[label] + score[1]) || score[1]
     }
     return consolidated
@@ -309,6 +477,7 @@ async function exportGrades(cid) {
         newRow.unshift('"' + tidy(row.fn) + '"')
         newRow.unshift('"' + tidy(row.ln) + '"')
         newRow.unshift('"' + tidy(row.email) + '"')
+        newRow.unshift('"' + tidy(row.uniid) + '"')
         newRow.push(Object.values(scores).reduce((x,y) => x + y, 0))
         rows.push(newRow)
     }
@@ -316,9 +485,14 @@ async function exportGrades(cid) {
     columns.unshift("First Name")
     columns.unshift("Last Name")
     columns.unshift("Email Address")
+    columns.unshift("University Id")
     columns.push("Total Score")
     columns = columns.map(v => '"' + v.replace(/"/g,'""') + '"')
     rows.unshift(columns)
+    toCSV(rows)
+}
+
+async function toCSV(rows) {
     let csv = rows.map(row => row.reduce((x,y) => x + "," + y))
                   .reduce((x,y) => x + "\n" + y)
     let file = new Blob([csv], {type: "text/csv"})
@@ -336,7 +510,66 @@ async function exportGrades(cid) {
             window.URL.revokeObjectURL(url)
         }, 0); 
     }
+}
 
+async function exportPerProblemGrades(cid) {
+    let box = $("*[data-cid='" + cid + "']")[0]
+    let loaded = new Promise(res => box.loadAll(res))
+    await loaded
+    let sorted = {}
+    for (const k in box.contents) {
+        let row = box.contents[k]
+        row.scores.forEach(s => {
+            let label 
+            if (s[0].Left) {
+                label = assignmentLookup[s[0].Left].title + " \t " + s[2]
+            } else {
+                label = "Problem Set " + s[0].Right + " \t " + s[2]
+            }
+            sorted[label] = sorted[label] || {} //initialize if not initialized
+            sorted[label][row.email] = s[1]
+        })
+    }
+    function sortCols(x,y) {
+        let titlex = x.substring(0,x.indexOf('\t'))
+        let titley = y.substring(0,y.indexOf('\t'))
+        let labelx = x.substring(x.indexOf('\t'))
+        let labely = y.substring(y.indexOf('\t'))
+        if (titlex.length > titley.length) { return 1 } 
+        else if (titlex.length < titley.length) { return -1 } 
+        else if (titlex > titley) { return 1 }
+        else if (titlex < titley) { return -1 }
+        else if (labelx.length > labely.length) { return 1 } 
+        else if (labelx.length < labely.length) { return -1 } 
+        else if (labelx > labely) { return 1 }
+        else if (labelx < labely) { return -1 }
+        else { return 0 }
+    }
+    let columns = Object.keys(sorted).sort(sortCols)
+    let rows = []
+    for (const k in box.contents) {
+        let row = box.contents[k]
+        let newRow = columns.map(column => {
+            if (sorted[column][row.email]) {
+                return sorted[column][row.email]
+            } else { 
+                return "-"
+            }})
+            /* quote-enclose and escape contained quotes, CSV specification */
+        function tidy (s) { return s.replace(/"/g,'""').replace(/^ */,"").replace(/ *$/,"") }
+        newRow.unshift('"' + tidy(row.fn) + '"')
+        newRow.unshift('"' + tidy(row.ln) + '"')
+        newRow.unshift('"' + tidy(row.email) + '"')
+        newRow.unshift('"' + tidy(row.uniid) + '"')
+        rows.push(newRow)
+    }
+    rows.sort((x,y) => x[0] > y[0])
+    columns.unshift("First Name")
+    columns.unshift("Last Name")
+    columns.unshift("Email Address")
+    columns.unshift("University Id")
+    rows.unshift(columns.map(s => s.replace("\t","-")))
+    toCSV(rows)
 }
 
 $(".scrollbox").each((_,elt) => elt.contents = {})
@@ -398,24 +631,28 @@ $("a[data-toggle='tab']").click(function(){
 })
 
 $(".async").each((_,elt) => elt.update = function (callback) {
-    let box = $(this).closest(".scrollbox")[0]
-    this.innerHTML = "loading..."
-    if (!box.contents[this.dataset.uid]) {queryGrade(this.dataset.query,(data) => {
-        box.contents[this.dataset.uid] = {
-            scores: data, 
-            fn: this.dataset.fn,
-            ln: this.dataset.ln,
-            email: this.dataset.email,
-        }
-        this.innerHTML = data.map(i=>i[1]).reduce((x,y) => x + y, 0);
-        document.getElementById("loaded-" + box.dataset.cid).innerHTML = Object.keys(box.contents).length
-        if (callback) callback()
-    })} else {
-        let data = box.contents[elt.dataset.uid].scores
-        this.innerHTML = data.map(i=>i[1]).reduce((x,y) => x + y, 0);
-        if (callback) callback()
+    if (!this.gradeLoaded) {
+        let box = $(this).closest(".scrollbox")[0]
+        this.innerHTML = "loading..."
+        if (!box.contents[this.dataset.uid]) {queryGrade(this.dataset.query,(data) => {
+            box.contents[this.dataset.uid] = {
+                scores: data, 
+                fn: this.dataset.fn,
+                ln: this.dataset.ln,
+                email: this.dataset.email,
+                uniid: this.dataset.uniid,
+            }
+            this.innerHTML = data.map(i=>i[1]).reduce((x,y) => x + y, 0);
+            document.getElementById("loaded-" + box.dataset.cid).innerHTML = Object.keys(box.contents).length
+            this.gradeLoaded = true
+            if (callback) callback() /* don't move this, it's part of an asynchronous callback in queryGrade*/
+        })} else {
+            let data = box.contents[elt.dataset.uid].scores
+            this.innerHTML = data.map(i=>i[1]).reduce((x,y) => x + y, 0);
+            this.gradeLoaded = true
+            if (callback) callback()
+        };
     };
-    this.update = (newcallback) => { if (newcallback) { newcallback() } }
 });
 
 $("textarea").addClass("form-control")

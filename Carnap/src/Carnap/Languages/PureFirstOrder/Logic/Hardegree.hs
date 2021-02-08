@@ -7,6 +7,7 @@ import Carnap.Core.Data.Types (Form)
 import Carnap.Languages.PureFirstOrder.Syntax
 import Carnap.Languages.PureFirstOrder.Parser
 import qualified Carnap.Languages.PurePropositional.Logic as P
+import Carnap.Languages.PurePropositional.Logic.Hardegree (hardegreeNotation)
 import Carnap.Calculi.NaturalDeduction.Syntax
 import Carnap.Calculi.NaturalDeduction.Parser
 import Carnap.Calculi.NaturalDeduction.Checker (hoProcessLineHardegreeMemo, hoProcessLineHardegree)
@@ -88,11 +89,28 @@ parseHardegreePL rtc = try liftProp <|> quantRule
                               | r `elem` ["QN"] -> return [QN1,QN2,QN3,QN4]
 
 parseHardegreePLProof ::  RuntimeNaturalDeductionConfig PureLexiconFOL (Form Bool) -> String -> [DeductionLine HardegreePL PureLexiconFOL (Form Bool)]
-parseHardegreePLProof ders = toDeductionHardegree (parseHardegreePL ders) (hardegreePLFormulaParser)
+parseHardegreePLProof ders = toDeductionHardegree (parseHardegreePL ders) hardegreePLFormulaParser
+
+hardegreePLNotation :: String -> String 
+hardegreePLNotation x = case runParser altParser 0 "" x of
+                        Left e -> show e
+                        Right s -> hardegreeNotation s
+    where altParser = do s <- try handleAtom <|> fallback
+                         rest <- (eof >> return "") <|> altParser
+                         return $ s ++ rest
+          handleAtom = do c <- oneOf "ABCDEFGHIJKLMNOPQRSTUVWXYZ" <* char '('
+                          args <- oneOf "abcdefghijklmnopqrstuvwxyz" `sepBy` char ','
+                          char ')'
+                          return $ c:args
+          fallback = do c <- anyChar 
+                        return [c]
 
 hardegreePLCalc = mkNDCalc
     { ndRenderer = MontagueStyle
     , ndParseProof = parseHardegreePLProof
     , ndProcessLine = hoProcessLineHardegree
+    , ndNotation = hardegreePLNotation
+    , ndParseSeq = parseSeqOver hardegreePLFormulaParser
+    , ndParseForm = hardegreePLFormulaParser
     , ndProcessLineMemo = Just hoProcessLineHardegreeMemo
     }

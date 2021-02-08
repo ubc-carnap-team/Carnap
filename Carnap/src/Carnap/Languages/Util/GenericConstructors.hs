@@ -129,6 +129,17 @@ instance UniformlyEq (TermSubset c b) where
 
 instance FirstOrderLex (TermSubset c b)
 
+data TermLessThan c b a where
+        TermLessThan :: TermLessThan c b (Term b -> Term b -> Form c)
+
+instance Schematizable (TermLessThan c b) where
+        schematize TermLessThan = \(t1:t2:_) -> t1 ++ "⊆" ++ t2
+
+instance UniformlyEq (TermLessThan c b) where
+        _ =* _ = True
+
+instance FirstOrderLex (TermLessThan c b)
+
 ---------------------------
 --  3. Function Symbols  --
 ---------------------------
@@ -201,6 +212,30 @@ instance UniformlyEq (ElementarySetOperations b) where
         _ =* _ = False
 
 instance FirstOrderLex (ElementarySetOperations b)
+
+data ElementaryArithmeticOperations b a where 
+        ArithAddition :: ElementaryArithmeticOperations b (Term b -> Term b -> Term b)
+        ArithMultiplication :: ElementaryArithmeticOperations b (Term b -> Term b -> Term b)
+        ArithSuccessor :: ElementaryArithmeticOperations b (Term b -> Term b)
+        ArithZero :: ElementaryArithmeticOperations b (Term b)
+
+instance Schematizable (ElementaryArithmeticOperations b) where
+        schematize ArithAddition (x:y:_)  = "(" ++ x ++ "+" ++ y ++ ")"
+        schematize ArithAddition _       = "+"
+        schematize ArithMultiplication (x:y:_)  = "(" ++ x ++ "×" ++ y ++ ")"
+        schematize ArithMultiplication _       = "×"
+        schematize ArithSuccessor (x:_)  =  x ++ "'"
+        schematize ArithSuccessor _       = "'"
+        schematize ArithZero _  = "0"
+
+instance UniformlyEq (ElementaryArithmeticOperations b) where
+        ArithAddition =* ArithAddition = True 
+        ArithMultiplication =* ArithMultiplication = True 
+        ArithSuccessor =* ArithSuccessor = True
+        ArithZero =* ArithZero = True
+        _ =* _ = False
+
+instance FirstOrderLex (ElementaryArithmeticOperations b)
 
 ----------------------
 --  4. Connectives  --

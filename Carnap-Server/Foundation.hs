@@ -14,6 +14,7 @@ import TH.RelativePaths            (pathRelativeToCabalPackage)
 --import Util.Database
 import qualified Data.CaseInsensitive as CI
 import qualified Data.Text as T
+import qualified Control.Monad.Trans.Except as E
 import qualified Data.Text.Encoding as TE
 import qualified Data.HashMap.Strict as HM
 import qualified Data.Text.Encoding.Error as TEE
@@ -22,6 +23,8 @@ import Yesod.Auth.LTI13 (authLTI13WithWidget, PlatformInfo(..), YesodAuthLTI13(.
 import Data.Time (NominalDiffTime)
 import Data.Time.Clock (addUTCTime)
 import Web.Cookie (sameSiteNone, SetCookie(setCookieSameSite))
+
+import Util.LTI
 
 -- | The foundation datatype for your application. This can be a good place to
 -- keep settings and values requiring initialization before your application
@@ -95,7 +98,14 @@ instance Yesod App where
         -- value passed to hamletToRepHtml cannot be a widget, this allows
         -- you to use normal widget features in default-layout.
         authmaybe <- maybeAuth
-        instructors <- instructorIdentList
+        (isInstructor, mdoc, mcourse) <- case authmaybe of
+            Nothing -> return (False, Nothing, Nothing)
+            Just uid -> runDB $ do
+                mud <- getBy $ UniqueUserData $ entityKey uid
+                mcour <- maybe (return Nothing) get (mud >>= userDataEnrolledIn . entityVal)
+                masgn <- maybe (return Nothing) get (mcour >>= courseTextBook)
+                mdoc <- maybe (return Nothing) get (assignmentMetadataDocument <$> masgn)
+                return (not $ null (mud >>= userDataInstructorId . entityVal), mdoc, mcour)
         pc <- widgetToPageContent $ do
             addStylesheet $ StaticR css_bootstrap_css
             addStylesheet $ StaticR css_font_awesome_css
@@ -128,31 +138,33 @@ instance Yesod App where
                      selectList ([UserDataInstructorId ==. Just (courseInstructor course)]
                                 ||. [UserDataInstructorId <-. map (Just . coInstructorIdent) coInstructors]) []
               userOrInstructorOf ident =
-                do Entity uid user <- requireAuth
-                   Entity uid' _ <- runDB (getBy $ UniqueUser ident) >>= maybe notFound return
+                do Entity uid' user <- requireAuth
+                   Entity uid _ <- runDB (getBy $ UniqueUser ident) >>= maybe notFound return
                    let ident' = userIdent user
-                   mudata <- runDB $ getBy (UniqueUserData uid')
-                   instructors <- case (entityVal <$> mudata) >>= userDataEnrolledIn of
-                                      Nothing -> return []
-                                      Just cid -> do 
-                                            mcourse <- runDB $ get cid
-                                            case mcourse of
-                                                Nothing -> return []
-                                                Just course -> retrieveInstructors cid course
-                   userIsAdmin <- isAdmin uid
-                   return $ if uid `elem` map (userDataUserId . entityVal) instructors
-                               || ident' == ident
-                               || userIsAdmin
-                            then Authorized
-                            else Unauthorized "It appears you're not authorized to access this page"
+                   mudata <- runDB $ getBy (UniqueUserData uid)
+                   if ident == ident' 
+                       then return Authorized
+                       else do mudata' <- runDB $ getBy (UniqueUserData uid')
+                               let mudv = entityVal <$> mudata
+                                   mudv' = entityVal <$> mudata'
+                                   mcid = mudv >>= userDataEnrolledIn
+                                   miid' = mudv' >>= userDataInstructorId
+                               case (mcid, miid') of
+                                    _ | (userDataIsAdmin <$> mudv') == Just True -> return Authorized
+                                    (Just cid, Just iid') -> do
+                                       mcourse <- runDB $ get cid
+                                       case courseInstructor <$> mcourse of
+                                           Just iid | iid' == iid -> return Authorized
+                                           _ -> (runDB $ getBy $ UniqueCoInstructor iid' cid) 
+                                                >>= return . maybe (Unauthorized "It appears you're not authorized to access this page") (const Authorized)
+                                    _ -> return $ Unauthorized "It appears you're not authorized to access this page"
               instructor ident =
                  do Entity uid user <- requireAuth
                     let ident' = userIdent user
-                    instructors <- instructorIdentList
+                    mud <- runDB $ getBy $ UniqueUserData uid
+                    let isInstructor = not $ null (mud >>= userDataInstructorId . entityVal)
                     userIsAdmin <- isAdmin uid
-                    return $ if (ident' `elem` instructors
-                                && ident' == ident)
-                                || userIsAdmin
+                    return $ if (isInstructor && ident' == ident) || userIsAdmin
                              then Authorized
                              else Unauthorized "It appears you're not authorized to access this page"
               enrolledIn coursetitle =
@@ -354,6 +366,14 @@ instance YesodAuth App where
     redirectToReferer _ = False
 
     authenticate creds0 = liftHandler $ runDB $ do
+        -- set a session variable ltiToken with the lti token if we have one
+        when (credsPlugin creds == "lti13") $ do
+            let fields = ["ltiToken", "ltiIss"]
+            let maybeVals = forM fields ((flip lookup) $ credsExtra creds)
+            maybe (return ())
+                  (\vals -> forM_ (zip fields vals) (uncurry setSession))
+                  maybeVals
+
         x <- getBy $ UniqueUser $ credsIdent creds
         case x of
             Just (Entity uid _) -> return $ Authenticated uid
@@ -377,22 +397,8 @@ instance YesodAuth App where
 
     onLogin = liftHandler $ do
           mid <- maybeAuthId
-          case mid of
-             Nothing -> return ()
-             Just uid ->
-                 --check to see if data for this user exists
-                 do maybeData <- runDB $ getBy $ UniqueUserData uid
-                    case maybeData of
-                        --if not, redirect to registration
-                        Nothing ->
-                             do musr <- runDB $ get uid
-                                menroll <- lookupSession "enrolling-in"
-                                case (musr, menroll) of
-                                   (Just (User ident _), Just theclass) ->  redirect (RegisterEnrollR theclass ident)
-                                   (Just (User ident _), Nothing) ->  redirect (RegisterR ident)
-                                   (Nothing,_) -> return ()
-                        --if so, go ahead
-                        Just _ -> setMessage "Now logged in"
+          -- if there is an auth id, go to registration, otherwise do nothing
+          traverse_ checkUserData mid
 
     -- appDevel is a custom method added to the settings, which is true
     -- when yesod is running in the development environment and false
@@ -429,4 +435,32 @@ instance HasHttpManager App where
 unsafeHandler :: App -> Handler a -> IO a
 unsafeHandler = Unsafe.fakeHandlerGetLogger appLogger
 
-
+-- | given a UserId, return the userdata or redirect to
+-- registration
+checkUserData :: Key User -> HandlerFor App UserData
+checkUserData uid = do maybeData <- runDB $ getBy $ UniqueUserData uid
+                       muser <- runDB $ get uid
+                       case muser of
+                           Nothing -> do setMessage "no user found"
+                                         redirect HomeR
+                           Just u -> case maybeData of
+                              -- LTI users will hit autoregistration every time
+                              -- to make sure their data gets immmediately
+                              -- propagated from LMS in case of e.g. name change
+                              Just (Entity _ userdata) | not . userDataIsLti $ userdata
+                                -> return userdata
+                              _ -> doRegister u
+    where
+        doRegister u = do
+            result <- E.runExceptT $ tryLTIAutoRegistration uid
+            case result of
+                Left err ->
+                    do  -- show the message about auto reg if any
+                        traverse_ setMessage (regErrorToString err)
+                        -- if they followed a reg link, apply that
+                        menroll <- lookupSession "enrolling-in"
+                        redirect $ maybe
+                            (RegisterR $ userIdent u)
+                            ((flip RegisterEnrollR) $ userIdent u)
+                            menroll
+                Right ud -> return ud

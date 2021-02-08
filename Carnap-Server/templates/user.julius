@@ -22,21 +22,35 @@ function tryDeleteRule (name) {
     }
 
 function sortUsersByCol(num) {
-    let body = document.getElementById("problemTableBody")
+    let body = document.getElementById("problem-table-body")
+    let head = document.getElementById("problem-table-head")
     let rows = Array.from(body.children)
+    let headers = head.getElementsByTagName("th")
+    headers[num].upsorted = (headers[num].upsorted * -1) || 1
+    let upsort = headers[num].upsorted
     let sortedRows = rows.sort((a,b) => {
         let val1 = a.children[num].innerHTML.split('.')
         let val2 = b.children[num].innerHTML.split('.')
-        if (val1.length > val2.length) { return 1 }
-        else if (val2.length > val1.length) { return -1 }
-        else {for (let idx = 0; idx < val1.length; idx++) {
-            if (val1[idx].length > val2[idx].length) { return 1 }
-            else if (val2[idx].length > val1[idx].length) { return -1 }
-            else if (val1[idx] > val2[idx]) { return 1 }
-            else if (val2[idx] > val1[idx]) { return -1 }
-            }
-        } 
+        for (let idx = 0; idx < Math.min(val1.length,val2.length); idx++) {
+            if (val1[idx].length > val2[idx].length) { return 1 * upsort}
+            else if (val2[idx].length > val1[idx].length) { return -1 * upsort}
+            else if (val1[idx] > val2[idx]) { return 1 * upsort }
+            else if (val2[idx] > val1[idx]) { return -1 * upsort }
+        }
+        if (val1.length > val2.length) { return -1 * upsort }
+        else if (val2.length > val1.length) { return 1 * upsort }
         return 0
     })
     sortedRows.forEach(el => body.appendChild(el))
 }
+
+function calcTotalScore() {
+    let rows = Array.from(document.getElementsByClassName("score-column"))
+    let values = rows.map(x => parseInt(x.innerHTML)).filter(x => x == x) /* this last bit filters out NaN */
+    let total = values.reduce((acc,val) => {return acc + val})
+    document.getElementById("score-numerator").innerHTML = total
+}
+
+$("#drop-class").submit(_ => { return confirm("Are you sure you want to unenroll?\n\n If enrollment is closed, you may not be able to reenter the class.") })
+
+$(document).ready(_ => calcTotalScore())

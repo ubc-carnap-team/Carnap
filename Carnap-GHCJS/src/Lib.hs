@@ -11,8 +11,8 @@ module Lib ( genericSendJSON, sendJSON, onEnter, onKey, doOnce, dispatchCustom, 
            , assignmentKey, initialize, mutate, initializeCallback, initCallbackObj
            , toCleanVal, popUpWith, spinnerSVG, doneButton, questionButton
            , exclaimButton, expandButton, createSubmitButton, createButtonWrapper
-           , maybeNodeListToList, trySubmit, inOpts, rewriteWith, setStatus, ButtonStatus(..)
-           , keyString) where
+           , maybeNodeListToList, trySubmit, inOpts, rewriteWith, setStatus, setSuccess, setFailure
+           , ButtonStatus(..) , keyString) where
 
 import Data.Aeson
 import Data.Maybe (catMaybes)
@@ -299,14 +299,22 @@ popUpWith fd w elt label msg details =
             Nothing -> return ()
            (Just p) <- getParentNode fd
            (Just gp) <- getParentNode p
-           appender <- newListener $ appendPopper outerpopper gp
+           appender <- newListener $ appendPopper outerpopper innerpopper gp
            remover <- newListener $ removePopper outerpopper gp
            addListener elt mouseOver appender False
            addListener elt mouseOut remover False
-    where appendPopper pop targ = do liftIO $ appendChild targ (Just pop) 
-                                     liftIO $ makePopper elt pop
-          removePopper pop targ = do liftIO $ removeChild targ (Just pop)
-                                     return ()
+    where appendPopper opop ipop targ = liftIO $ do 
+               mtitle <- getAttribute elt "title" :: IO (Maybe String)
+               case mtitle of
+                   Just s -> do
+                       removeAttribute elt "title" 
+                       setInnerHTML ipop (Just s)
+                   Nothing -> return ()
+               appendChild targ (Just opop) 
+               makePopper elt opop
+          removePopper pop targ = do 
+               liftIO $ removeChild targ (Just pop)
+               return ()
 
 --------------------------------------------------------
 --1.3 Encodings
@@ -386,6 +394,10 @@ createSubmitButton w bw submit opts =
 setStatus w b Edited = setAttribute b "data-carnap-exercise-status" "edited"
 setStatus w b Submitted = do dispatchCustom w b "problem-submission"
                              setAttribute b "data-carnap-exercise-status" "submitted"
+
+setSuccess w elt = liftIO (setAttribute elt "class" "success" >> dispatchCustom w elt "exercise-success")
+
+setFailure w elt = liftIO (setAttribute elt "class" "failure" >> dispatchCustom w elt "exercise-failure")
 
 loginCheck callback serverResponse  
      | serverResponse == "submitted!" = callback
@@ -598,14 +610,11 @@ initializeCallback s f = do theCB <- asyncCallback2 (cb f)
 initialize :: EventName t Event
 initialize = EventName "initialize"
 
-mutate :: EventName t Event
-mutate = EventName "mutate"
-
 initializeCallback :: (Value -> IO Value) -> IO ()
 initializeCallback = error "initializeCallback requires the GHCJS FFI"
 
 toCleanVal :: JSVal -> IO (Maybe Value)
-toCleanVal = error "toCleaVal requires the GHCJS FFI"
+toCleanVal = error "toCleanVal requires the GHCJS FFI"
 
 initCallbackObj :: IO ()
 initCallbackObj = error "initCallbackObj requires the GHCJS FFI"

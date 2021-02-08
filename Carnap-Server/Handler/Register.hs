@@ -2,6 +2,7 @@ module Handler.Register (getRegisterR, getRegisterEnrollR, getEnrollR, postEnrol
 
 import Import
 import Yesod.Form.Bootstrap3
+import Text.Blaze.Html (toMarkup)
 import Util.Database
 
 getRegister :: ([Entity Course] -> UserId -> Html -> MForm Handler (FormResult (Maybe UserData), Widget)) -> Route App
@@ -26,8 +27,7 @@ postRegister theform ident = do
             FormSuccess (Just userdata) ->
                 do msuccess <- tryInsert userdata
                    case msuccess of
-                        Just _ -> do deleteSession "enrolling-in"
-                                     redirect (UserR ident)
+                        Just _ -> deleteSession "enrolling-in" >> redirect (UserR ident)
                         Nothing -> defaultLayout clashPage
             FormSuccess Nothing ->
                 do setMessage "Class not found - link may be incorrect or expired. Please enroll manually."
@@ -48,7 +48,7 @@ postRegister theform ident = do
                       |]
 
 getRegisterR :: Text -> Handler Html
-getRegisterR ident = getRegister registrationForm (RegisterR ident) ident
+getRegisterR ident = getRegister (registrationForm ident) (RegisterR ident) ident
 
 getEnrollR :: Text -> Handler Html
 getEnrollR classname = do setSession "enrolling-in" classname
@@ -58,10 +58,10 @@ getEnrollR classname = do setSession "enrolling-in" classname
                           case mud of
                               Nothing -> redirect (RegisterEnrollR classname (userIdent user))
                               Just (Entity _ ud) -> case (mclass, userDataEnrolledIn ud) of
-                                  (Just (Entity cid course), Just ecid) -> do
-                                        if cid == ecid then redirect HomeR
-                                                       else defaultLayout (reenrollPage course user)
-                                  (Just (Entity _ course), Nothing) -> do defaultLayout (confirm course)
+                                  (Just (Entity cid _), Just ecid) | cid == ecid -> redirect HomeR --redirect those who try to reenroll in a closed course that they belong to
+                                  (Just (Entity cid course ), _) | not (courseEnrollmentOpen course) -> permissionDenied $ "Enrollment is closed for " <> courseTitle course <> "."
+                                  (Just (Entity cid course), Just _) -> defaultLayout (reenrollPage course user)
+                                  (Just (Entity _ course), Nothing) -> defaultLayout (confirm course)
                                   (Nothing,_) -> setMessage "no course with that title" >> notFound
     where reenrollPage course user = [whamlet|
                            <div.container>
@@ -91,6 +91,8 @@ postEnrollR classname = do (Entity uid _) <- requireAuth
                            case (mclass, mudent) of
                                (Nothing,_) -> setMessage "no course with that title" >> notFound
                                (_,Nothing) -> setMessage "no user data (do you need to register?)" >> notFound
+                               (Just (Entity _ course), _) 
+                                    | not (courseEnrollmentOpen course) -> permissionDenied $ "Enrollment is closed for " <> courseTitle course <> "."
                                (Just (Entity cid _), Just (Entity udid _)) -> do
                                     runDB $ update udid [UserDataEnrolledIn =. Just cid]
                                     setMessage $ "Enrollment change complete"
@@ -98,38 +100,92 @@ postEnrollR classname = do (Entity uid _) <- requireAuth
 
 --registration with enrollment built into the path
 getRegisterEnrollR :: Text -> Text -> Handler Html
-getRegisterEnrollR theclass ident = getRegister (enrollmentForm theclass) (RegisterEnrollR theclass ident) ident
+getRegisterEnrollR classname ident = do
+        mclass <- runDB $ getBy (UniqueCourse classname)
+        case mclass of
+            Nothing -> setMessage "no course with that title" >> notFound
+            Just (Entity _ course) 
+                | not (courseEnrollmentOpen course) -> setMessage ("Enrollment for " <> toMarkup (courseTitle course) <> "is closed.") >> redirect (RegisterR ident)
+            _ -> getRegister (enrollmentForm classname ident) (RegisterEnrollR classname ident) ident
 
 postRegisterR :: Text -> Handler Html
-postRegisterR = postRegister registrationForm
+postRegisterR ident = postRegister (registrationForm ident) ident
 
 postRegisterEnrollR :: Text -> Text -> Handler Html
-postRegisterEnrollR theclass = postRegister (enrollmentForm theclass)
+postRegisterEnrollR theclass ident = postRegister (enrollmentForm theclass ident) ident
 
-registrationForm :: [Entity Course] -> UserId -> Html -> MForm Handler (FormResult (Maybe UserData), Widget)
-registrationForm courseEntities userId = do
-        renderBootstrap3 BootstrapBasicForm $ fixedId userId
-            <$> areq textField "First name " Nothing
-            <*> areq textField "Last name " Nothing
-            <*> areq (selectFieldList courses) "enrolled in " Nothing
-    where courses = ("No Course", Nothing) : map (\e -> (courseTitle $ entityVal e, Just $ entityKey e)) courseEntities
+registrationForm :: Text -> [Entity Course] -> UserId -> Html -> MForm Handler (FormResult (Maybe UserData), Widget)
+registrationForm ident courseEntities userId extra = do
+        (fnameRes, fnameView) <- mreq textField (withPlaceholder "First Name" $ bfs ("First Name " :: Text)) Nothing
+        (lnameRes, lnameView) <- mreq textField (withPlaceholder "Last Name" $ bfs ("Last Name " :: Text)) Nothing
+        (uniIdRes, uniIdView) <- mopt textField (withPlaceholder "University Id" $ bfs ("University Id " :: Text)) Nothing
+        (enrollRes, enrollView) <- mreq (selectFieldList courses) (bfs ("Enrolled In " :: Text)) Nothing
+        let theRes = fixedId userId ident <$> fnameRes <*> lnameRes <*> uniIdRes <*> enrollRes
+            theWidget = do
+                [whamlet|
+                #{extra}
+                <h6>Your Name:
+                <div.row>
+                    <div.form-group.col-md-6>
+                        ^{fvInput fnameView}
+                    <div.form-group.col-md-6>
+                        ^{fvInput lnameView}
+                <h6>Your University ID:
+                <div.row>
+                    <div.form-group.col-md-12>
+                        ^{fvInput uniIdView}
+                <p style="color:gray">
+                    Your <i>University ID</i> is the student identifier used by your university.
+                    \ If your instructor hasn't said what to enter here, you can leave this blank.
+                <h6>Your Enrollment:
+                <div.row>
+                    <div.form-group.col-md-12>
+                        ^{fvInput enrollView}
+                <p style="color:gray">
+                    Your <i>Enrollment</i> is the class you are enrolled in.
+                    \ If you don't want to register as enrolled in a class, you can leave this as "No Course".
+                |]
+        return (theRes,theWidget)
+    where openCourseEntities = filter (\(Entity k v) -> courseEnrollmentOpen v) courseEntities
+          courses = ("No Course", Nothing) : map (\(Entity k v) -> (courseTitle v, Just k)) openCourseEntities
 
-fixedId :: Key User -> Text -> Text -> Maybe (Key Course) -> Maybe UserData
-fixedId userId fname lname ckey = Just $ UserData {
-                  userDataFirstName = fname
+fixedId :: Key User -> Text -> Text -> Text -> Maybe Text -> Maybe (Key Course) -> Maybe UserData
+fixedId userId ident fname lname uniid ckey = Just $ UserData
+                { userDataFirstName = fname
+                , userDataEmail = Just ident
                 , userDataLastName = lname
+                , userDataUniversityId = uniid
                 , userDataEnrolledIn = ckey
                 , userDataInstructorId = Nothing
                 , userDataIsAdmin = False
+                , userDataIsLti = False
                 , userDataUserId = userId
-            }
+                }
 
-enrollmentForm :: Text -> [Entity Course] -> UserId -> Html -> MForm Handler (FormResult (Maybe UserData), Widget)
-enrollmentForm classtitle courseEntities userId = do
-        renderBootstrap3 BootstrapBasicForm $ fixedId'
-            <$> areq textField "First name " Nothing
-            <*> areq textField "Last name " Nothing
-    where fixedId' fname lname = fixedId userId fname lname course
+enrollmentForm :: Text -> Text -> [Entity Course] -> UserId ->  Html -> MForm Handler (FormResult (Maybe UserData), Widget)
+enrollmentForm classtitle ident courseEntities userId extra = do
+        (fnameRes, fnameView) <- mreq textField (withPlaceholder "First Name" $ bfs ("First Name " :: Text)) Nothing
+        (lnameRes, lnameView) <- mreq textField (withPlaceholder "Last Name" $ bfs ("Last Name " :: Text)) Nothing
+        (uniIdRes, uniIdView) <- mopt textField (withPlaceholder "University Id" $ bfs ("University Id " :: Text)) Nothing
+        let theRes = fixedId' <$> fnameRes <*> lnameRes <*> uniIdRes
+            theWidget = do
+                [whamlet|
+                #{extra}
+                <h6>Your Name:
+                <div.row>
+                    <div.form-group.col-md-6>
+                        ^{fvInput fnameView}
+                    <div.form-group.col-md-6>
+                        ^{fvInput lnameView}
+                <div.row>
+                    <div.form-group.col-md-12>
+                        ^{fvInput uniIdView}
+                <p style="color:gray">
+                    Your <i>University ID</i> is the student identifier used by your university.
+                    \ If your instructor hasn't said what to enter here, you can leave this blank.
+                |]
+        return (theRes,theWidget)
+    where fixedId' fname lname uniid = fixedId userId ident fname lname uniid course
           course = case filter (\e -> classtitle == courseTitle (entityVal e)) courseEntities of
                      [] -> Nothing
                      e:_ -> Just $ entityKey e

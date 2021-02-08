@@ -1,12 +1,13 @@
-{-#LANGUAGE GADTs, KindSignatures, TypeOperators, FlexibleContexts, TypeSynonymInstances, FlexibleInstances, MultiParamTypeClasses #-}
+{-#LANGUAGE GADTs, KindSignatures, TypeOperators, FlexibleContexts, TypeSynonymInstances, FlexibleInstances, RankNTypes, MultiParamTypeClasses #-}
 module Carnap.Calculi.NaturalDeduction.Checker
 (toDisplaySequence,toDisplaySequenceMemo, toDisplaySequenceStructured,
-processLineMontague, processLineFitch, processLineHardegree,processLineLemmon,
-hoProcessLineHardegree, hoProcessLineHardegreeMemo,
-processLineStructuredFitch,processLineStructuredFitchHO,
+processLineMontague, processLineFitch, processLineHardegree, processLineLemmon,
+processLineHilbert, hoProcessLineHilbertImplicitMemo, hoProcessLineMontagueMemo,
+hoProcessLineHardegreeMemo, hoProcessLineLemmonMemo, hoProcessLineHilbertMemo,
 hoProcessLineFitchMemo, hoProcessLineFitch, hoProcessLineMontague,
-hoProcessLineLemmon,hoProcessLineLemmonMemo,
-hoProcessLineMontagueMemo, hoReduceProofTree, hoReduceProofTreeMemo,
+hoProcessLineLemmon, hoProcessLineHardegree, hoProcessLineHilbert, hoProcessLineHilbertImplicit,
+hoReduceProofTree, hoReduceProofTreeMemo,
+processLineStructuredFitch,processLineStructuredFitchHO,
 hosolve, ProofErrorMessage(..),
 Feedback(..),seqUnify,seqSubsetUnify) where
 
@@ -81,9 +82,31 @@ toDisplaySequenceStructured pl ded@(SubProof (1,m) ls) = let feedback = map (pl 
             Right s -> if alright fb then Just s else Nothing
           res = globalRestriction (Right ded)
 
+type ProofTreeProducer r lex sem = 
+     Deduction r lex sem -> Int -> Either (ProofErrorMessage lex) (ProofTree r lex sem)
+
+processLine, hoProcessLine :: 
+    ( Inference r lex sem
+    , ACUI (ClassicalSequentOver lex)
+    , Sequentable lex
+    , Typeable sem
+    , StaticVar (ClassicalSequentOver lex)
+    , MonadVar (ClassicalSequentOver lex) (State Int)
+    ) => ProofTreeProducer r lex sem -> Deduction r lex sem -> Restrictor r lex -> Int -> FeedbackLine lex sem
+processLine ptp ded res n = case ded !! (n - 1) of
+  --special case to catch QedLines not being cited in justifications
+  (QedLine _ _ _) -> Left $ NoResult n
+  _ -> ptp ded n >>= reduceProofTree res
+hoProcessLine ptp ded res n = case ded !! (n - 1) of
+  --special case to catch QedLines not being cited in justifications
+  (QedLine _ _ _) -> Left $ NoResult n
+  _ -> ptp ded n >>= hoReduceProofTree res
+
 processLineHardegree, hoProcessLineHardegree, processLineMontague,
     hoProcessLineMontague, processLineFitch, hoProcessLineFitch,
-    processLineLemmon, hoProcessLineLemmon :: 
+    processLineLemmon, hoProcessLineLemmon, processLineHilbert,
+    hoProcessLineHilbert, processLineHilbertImplicit,
+    hoProcessLineHilbertImplicit :: 
     ( Inference r lex sem
     , ACUI (ClassicalSequentOver lex)
     , Sequentable lex
@@ -91,48 +114,37 @@ processLineHardegree, hoProcessLineHardegree, processLineMontague,
     , StaticVar (ClassicalSequentOver lex)
     , MonadVar (ClassicalSequentOver lex) (State Int)
     ) => Deduction r lex sem -> Restrictor r lex -> Int -> FeedbackLine lex sem
-processLineHardegree ded res n = case ded !! (n - 1) of
-  --special case to catch QedLines not being cited in justifications
-  (QedLine _ _ _) -> Left $ NoResult n
-  _ -> toProofTreeHardegree ded n >>= reduceProofTree res
+processLineHardegree = processLine toProofTreeHardegree
+processLineMontague = processLine toProofTreeMontague
+processLineFitch = processLine toProofTreeFitch
+processLineLemmon = processLine toProofTreeLemmon
+processLineHilbert = processLine toProofTreeHilbert
+processLineHilbertImplicit = processLine toProofTreeHilbertImplicit
+hoProcessLineHardegree = hoProcessLine toProofTreeHardegree
+hoProcessLineMontague = hoProcessLine toProofTreeMontague
+hoProcessLineFitch = hoProcessLine toProofTreeFitch
+hoProcessLineLemmon = hoProcessLine toProofTreeLemmon
+hoProcessLineHilbert = hoProcessLine toProofTreeHilbert
+hoProcessLineHilbertImplicit = hoProcessLine toProofTreeHilbertImplicit
 
-hoProcessLineHardegree ded res n = case ded !! (n - 1) of
-  --special case to catch QedLines not being cited in justifications
-  (QedLine _ _ _) -> Left $ NoResult n
-  _ -> toProofTreeHardegree ded n >>= hoReduceProofTree res
-
-processLineMontague ded res n = case ded !! (n - 1) of
-  --special case to catch QedLines not being cited in justifications
-  (QedLine _ _ _) -> Left $ NoResult n
-  _ -> toProofTreeMontague ded n >>= reduceProofTree res
-  
-hoProcessLineMontague ded res n = case ded !! (n - 1) of
-  --special case to catch QedLines not being cited in justifications
-  (QedLine _ _ _) -> Left $ NoResult n
-  _ -> toProofTreeMontague ded n >>= hoReduceProofTree res
-
-processLineFitch ded res n = case ded !! (n - 1) of
-  --special case to catch QedLines not being cited in justifications
-  (QedLine _ _ _) -> Left $ NoResult n
-  _ -> toProofTreeFitch ded n >>= reduceProofTree res
-
-hoProcessLineFitch ded res n = case ded !! (n - 1) of
-  --special case to catch QedLines not being cited in justifications
-  (QedLine _ _ _) -> Left $ NoResult n
-  _ -> toProofTreeFitch ded n >>= hoReduceProofTree res
-
-processLineLemmon ded res n = case ded !! (n - 1) of
-  --special case to catch QedLines not being cited in justifications
-  (QedLine _ _ _) -> Left $ NoResult n
-  _ -> toProofTreeLemmon ded n >>= reduceProofTree res
-
-hoProcessLineLemmon ded res n = case ded !! (n - 1) of
-  --special case to catch QedLines not being cited in justifications
-  (QedLine _ _ _) -> Left $ NoResult n
-  _ -> toProofTreeLemmon ded n >>= hoReduceProofTree res
+hoProcessLineMemo ::
+    ( StaticVar (ClassicalSequentOver lex)
+    , ACUI (ClassicalSequentOver lex)
+    , Sequentable lex
+    , Inference r lex sem
+    , Typeable sem
+    , MonadVar (ClassicalSequentOver lex) (State Int)
+    , Show (ClassicalSequentOver lex (Succedent sem)), Show r
+    ) => ProofTreeProducer r lex sem -> ProofMemoRef lex sem r -> Deduction r lex sem -> Restrictor r lex -> Int -> IO (FeedbackLine lex sem)
+hoProcessLineMemo ptp ref ded res n = case ded !! (n - 1) of
+  (QedLine _ _ _) -> return $ Left $ NoResult n
+  _ -> case ptp ded n of
+        Right t -> hoReduceProofTreeMemo ref res t 
+        Left e -> return $ Left e
 
 hoProcessLineHardegreeMemo, hoProcessLineMontagueMemo,
-    hoProcessLineFitchMemo, hoProcessLineLemmonMemo  :: 
+    hoProcessLineFitchMemo, hoProcessLineLemmonMemo, hoProcessLineHilbertMemo,
+    hoProcessLineHilbertImplicitMemo  :: 
     ( StaticVar (ClassicalSequentOver lex)
     , ACUI (ClassicalSequentOver lex)
     , Sequentable lex
@@ -141,31 +153,12 @@ hoProcessLineHardegreeMemo, hoProcessLineMontagueMemo,
     , MonadVar (ClassicalSequentOver lex) (State Int)
     , Show (ClassicalSequentOver lex (Succedent sem)), Show r
     ) => ProofMemoRef lex sem r -> Deduction r lex sem -> Restrictor r lex -> Int -> IO (FeedbackLine lex sem)
-hoProcessLineHardegreeMemo ref ded res n = case ded !! (n - 1) of
-  --special case to catch QedLines not being cited in justifications
-  (QedLine _ _ _) -> return $ Left $ NoResult n
-  _ -> case toProofTreeHardegree ded n of
-        Right t -> hoReduceProofTreeMemo ref res t 
-        Left e -> return $ Left e
-
-hoProcessLineMontagueMemo ref ded res n = case ded !! (n - 1) of
-  --special case to catch QedLines not being cited in justifications
-  (QedLine _ _ _) -> return $ Left $ NoResult n
-  _ -> case toProofTreeMontague ded n of
-        Right t -> hoReduceProofTreeMemo ref res t
-        Left e -> return $ Left e
-
-hoProcessLineFitchMemo ref ded res n = case ded !! (n - 1) of
-  (QedLine _ _ _) -> return $ Left $ NoResult n
-  _ -> case toProofTreeFitch ded n of
-        Right t -> hoReduceProofTreeMemo ref res t
-        Left e -> return $ Left e
-
-hoProcessLineLemmonMemo ref ded res n = case ded !! (n - 1) of
-  (QedLine _ _ _) -> return $ Left $ NoResult n
-  _ -> case toProofTreeLemmon ded n of
-        Right t -> hoReduceProofTreeMemo ref res t
-        Left e -> return $ Left e
+hoProcessLineHardegreeMemo = hoProcessLineMemo toProofTreeHardegree
+hoProcessLineMontagueMemo = hoProcessLineMemo toProofTreeMontague
+hoProcessLineFitchMemo = hoProcessLineMemo toProofTreeFitch
+hoProcessLineLemmonMemo = hoProcessLineMemo toProofTreeLemmon
+hoProcessLineHilbertMemo = hoProcessLineMemo toProofTreeHilbert
+hoProcessLineHilbertImplicitMemo = hoProcessLineMemo toProofTreeHilbertImplicit
 
 processLineStructuredFitch, processLineStructuredFitchHO :: 
   ( Sequentable lex
@@ -258,26 +251,26 @@ foseqFromNode, hoseqFromNode  ::
                           , [Equation (ClassicalSequentOver lex)]
                           , r
                           )]]
-foseqFromNode lineno rules prems conc = 
+foseqFromNode lineno rules prems conc =
         do rrule <- rules
-           rprems <- permutations (premisesOf rrule) 
+           rprems <- permutations (premisesOf rrule)
            return $ oneRule rrule rprems
-    where oneRule r rp = do if length rp /= length prems 
+    where oneRule r rp = do if length rp /= length prems
                                 then Left $ GenericError "Dependencies are of the wrong number or form" lineno
                                 else Right ""
                             let rconc = conclusionOf r
-                            fosub <- fosolve 
-                               (zipWith (:=:) 
-                                   (map (view rhs) (rconc:rp)) 
+                            fosub <- fosolve
+                               (zipWith (:=:)
+                                   (map (view rhs) (rconc:rp))
                                    (conc:map (view rhs) prems))
                             let subbedrule = map (applySub fosub) rp
                                 -- XXX: We use the old rhs rather than building
                                 -- a new one by substitution in order to
                                 -- preserve things like variable labelings
                             let subbedconc = applySub fosub (set rhs conc rconc )
-                            acuisubs <- acuisolve 
-                               (zipWith (:=:) 
-                                   (map (view lhs) subbedrule) 
+                            acuisubs <- acuisolve
+                               (zipWith (:=:)
+                                   (map (view lhs) subbedrule)
                                    (map (view lhs) prems))
                             return $ map (\x -> (antecedentNub $ applySub x subbedconc,x,r)) (map (++ fosub) acuisubs)
 
@@ -285,8 +278,8 @@ hoseqFromNode lineno rules prems conc =
         do r <- rules
            --run a non-deterministic computation over all permutations of
            --the supplied premises
-           rps <- permutations (premisesOf r) 
-           if length rps /= length prems 
+           rps <- permutations (premisesOf r)
+           if length rps /= length prems
                 then return $ Left $ GenericError "Dependencies are of the wrong number or form" lineno
                 else do let rconc = conclusionOf r
                         --create and solve a unification problem: 
@@ -304,11 +297,12 @@ hoseqFromNode lineno rules prems conc =
                                         -- a new one by substitution in order to
                                         -- preserve things like variable labelings
                                    let subbedconc = applySub hosub (set rhs conc rconc)
-                                   let prob = (zipWith (:=:) (map (pureBNF . view lhs) subbedrule) 
+                                   let prob = (zipWith (:=:) (evalState (mapM (\x -> stateRebuild (view lhs x) >>= toBNF) subbedrule) (0 :: Int))
                                                              (map (view lhs) prems))
                                    case evalState (acuiUnifySys (const False) prob) (0 :: Int) of
                                        [] -> return $ Left $ renumber lineno $ NoUnify [prob] 0
                                        subs -> return $ Right $ map (\x -> (antecedentNub $ applySub x subbedconc,x,r)) (map (++ hosub) subs)
+
 
 reduceProofTree, hoReduceProofTree :: 
     ( Inference r lex sem

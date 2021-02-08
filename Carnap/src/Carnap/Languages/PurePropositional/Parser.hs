@@ -1,6 +1,6 @@
 {-# LANGUAGE FlexibleContexts, FlexibleInstances, MultiParamTypeClasses #-}
 module Carnap.Languages.PurePropositional.Parser 
-    ( purePropFormulaParser, standardLetters, extendedLetters, hausmanOpts, thomasBolducZachOpts, thomasBolducZach2019Opts
+    ( purePropFormulaParser, standardLetters, standardLettersStrict, extendedLetters, hausmanOpts, thomasBolducZachOpts, thomasBolducZach2019Opts
     , hardegreeOpts, standardOpTable, calgaryOpTable, calgary2019OpTable, hausmanOpTable, howardSnyderOpTable, gamutOpTable
     , gamutOpts, bonevacOpts, howardSnyderOpts, hurleyOpts, magnusOpts, extendedPropSeqParser
     ) where
@@ -8,7 +8,7 @@ module Carnap.Languages.PurePropositional.Parser
 import Carnap.Core.Data.Types
 import Carnap.Languages.PurePropositional.Syntax
 import Carnap.Languages.ClassicalSequent.Parser
-import Carnap.Languages.PurePropositional.Util (isAtom)
+import Carnap.Languages.PurePropositional.Util (isAtom, isBooleanBinary)
 import Carnap.Languages.Util.LanguageClasses (BooleanLanguage, IndexedPropLanguage)
 import Carnap.Languages.Util.GenericParsers
 import Text.Parsec
@@ -48,10 +48,13 @@ bonevacOpts = PurePropositionalParserOptions
                 }
 
 hardegreeOpts :: Monad m => PurePropositionalParserOptions u m
-hardegreeOpts = standardLetters { hasBooleanConstants = True }
+hardegreeOpts = extendedLetters { hasBooleanConstants = True }
 
 extendedLetters :: Monad m => PurePropositionalParserOptions u m
 extendedLetters = standardLetters { atomicSentenceParser = sentenceLetterParser ['A' .. 'Z'] }
+
+standardLettersStrict :: Monad m => PurePropositionalParserOptions u m
+standardLettersStrict = standardLetters { opTable = standardOpTableStrict }
 
 magnusOpts :: Monad m => PurePropositionalParserOptions u m
 magnusOpts = extendedLetters { parenRecur = magnusDispatch }
@@ -61,7 +64,10 @@ magnusOpts = extendedLetters { parenRecur = magnusDispatch }
 thomasBolducZachOpts :: Monad m => PurePropositionalParserOptions u m
 thomasBolducZachOpts = magnusOpts { hasBooleanConstants = True 
                                   , opTable = calgaryOpTable
+                                  , parenRecur = zachDispatch
                                   }
+    where noatoms a = if isBooleanBinary a then return a else unexpected "parentheses around an atom or negation"
+          zachDispatch opt rw = (wrappedWith '(' ')' (rw opt) <|> wrappedWith '[' ']' (rw opt)) >>= noatoms
 
 thomasBolducZach2019Opts :: Monad m => PurePropositionalParserOptions u m
 thomasBolducZach2019Opts = thomasBolducZachOpts { opTable = calgary2019OpTable }
@@ -116,6 +122,13 @@ standardOpTable :: (BooleanLanguage (FixLang lex (Form Bool)), Monad m)
 standardOpTable = [ [ Prefix (try parseNeg)]
                   , [Infix (try parseOr) AssocLeft, Infix (try parseAnd) AssocLeft]
                   , [Infix (try parseIf) AssocNone, Infix (try parseIff) AssocNone]
+                  ]
+
+standardOpTableStrict :: (BooleanLanguage (FixLang lex (Form Bool)), Monad m)
+    => [[Operator String u m (FixLang lex (Form Bool))]]
+standardOpTableStrict = [ [ Prefix (try parseNeg)]
+                  , [ Infix (try parseOr) AssocNone, Infix (try parseAnd) AssocNone
+                    , Infix (try parseIf) AssocNone, Infix (try parseIff) AssocNone]
                   ]
 
 calgaryOpTable :: (BooleanLanguage (FixLang lex (Form Bool)), Monad m)

@@ -2,7 +2,7 @@
 module Carnap.Languages.PureFirstOrder.Parser 
 ( folFormulaParser, folFormulaParserRelaxed, mfolFormulaParser
 , magnusFOLFormulaParser, gallowPLFormulaParser, thomasBolducAndZachFOLFormulaParser
-, gamutNDFormulaParser, thomasBolducAndZachFOL2019FormulaParser
+, gamutNDFormulaParser, thomasBolducAndZachFOL2019FormulaParser, thomasBolducAndZachFOL2019FormulaParserStrict
 , hardegreePLFormulaParser, bergmannMoorAndNelsonPDFormulaParser, bergmannMoorAndNelsonPDEFormulaParser
 , goldfarbNDFormulaParser, tomassiQLFormulaParser, hurleyPLFormulaParser, hausmanPLFormulaParser
 , FirstOrderParserOptions(..), parserFromOptions, parseFreeVar, howardSnyderPLFormulaParser) where
@@ -14,7 +14,7 @@ import Carnap.Languages.PureFirstOrder.Syntax
 import Carnap.Languages.Util.LanguageClasses (BooleanLanguage, BooleanConstLanguage, StandardVarLanguage, IndexedPropLanguage(..), QuantLanguage(..))
 import Carnap.Languages.Util.GenericParsers
 import Carnap.Languages.PurePropositional.Parser
-import Carnap.Languages.PurePropositional.Util (isBoolean)
+import Carnap.Languages.PurePropositional.Util (isBoolean, isBooleanBinary)
 import Carnap.Languages.PureFirstOrder.Util (isOpenFormula)
 import Text.Parsec
 import Text.Parsec.Expr
@@ -112,7 +112,7 @@ magnusFOLParserOptions = FirstOrderParserOptions
                          , hasBooleanConstants = False
                          , parenRecur = magnusDispatch
                          , opTable = standardOpTable
-                         , finalValidation = const (pure ())
+                         , finalValidation = \x -> if isOpenFormula x then unexpected "unbound variable" else return ()
                          }
     where magnusDispatch opt rw = (wrappedWith '(' ')' (rw opt) <|> wrappedWith '[' ']' (rw opt)) >>= boolean
           boolean a = if isBoolean a then return a else unexpected "atomic or quantified sentence wrapped in parentheses"
@@ -121,6 +121,7 @@ thomasBolducAndZachFOLParserOptions :: FirstOrderParserOptions PureLexiconFOL u 
 thomasBolducAndZachFOLParserOptions = magnusFOLParserOptions { hasBooleanConstants = True
                                                              , freeVarParser = parseFreeVar "stuvwxyz"
                                                              , constantParser = Just (parseConstant "abcdefghijklmnopqr")
+                                                             , parenRecur = zachDispatch
                                                              , atomicSentenceParser = 
                                                                     \x -> try (parsePredicateSymbolNoParen "ABCDEFGHIJKLMNOPQRSTUVWXYZ" x)
                                                                           <|> try (sentenceLetterParser "ABCDEFGHIJKLMNOPQRSTUVWXYZ")
@@ -128,6 +129,11 @@ thomasBolducAndZachFOLParserOptions = magnusFOLParserOptions { hasBooleanConstan
                                                              , opTable = calgaryOpTable
                                                              , finalValidation = \x -> if isOpenFormula x then unexpected "unbound variable" else return ()
                                                              }
+    where zachDispatch opt rw = (wrappedWith '(' ')' (rw opt) <|> wrappedWith '[' ']' (rw opt)) >>= boolean
+          boolean a = if isBooleanBinary a then return a else unexpected "atomic, negated, or quantified sentence wrapped in parentheses"
+
+thomasBolducAndZachFOL2019ParserOptionsStrict :: FirstOrderParserOptions PureLexiconFOL u Identity
+thomasBolducAndZachFOL2019ParserOptionsStrict = thomasBolducAndZachFOL2019ParserOptions { opTable = calgaryOpTable}
 
 gallowPLParserOptions :: FirstOrderParserOptions PureLexiconFOL u Identity
 gallowPLParserOptions = magnusFOLParserOptions { freeVarParser = parseFreeVar "wxyz"
@@ -147,19 +153,16 @@ gamutNDParserOptions = thomasBolducAndZachFOLParserOptions { atomicSentenceParse
                                                            }
 
 thomasBolducAndZachFOL2019ParserOptions :: FirstOrderParserOptions PureLexiconFOL u Identity
-thomasBolducAndZachFOL2019ParserOptions = magnusFOLParserOptions { hasBooleanConstants = True
-                                                                 , quantifiedSentenceParser' = lplQuantifiedSentenceParser
-                                                                 , freeVarParser = parseFreeVar "stuvwxyz"
-                                                                 , functionParser = Just (\x -> parseFunctionSymbol "abcdefghijklmnopqrst" x)
-                                                                 , constantParser = Just (parseConstant "abcdefghijklmnopqr")
-                                                                 , atomicSentenceParser = 
-                                                                        \x -> try (parsePredicateSymbol "ABCDEFGHIJKLMNOPQRSTUVWXYZ" x) 
-                                                                              <|> try (sentenceLetterParser "ABCDEFGHIJKLMNOPQRSTUVWXYZ")
-                                                                              <|> try (equalsParser x)
-                                                                              <|> inequalityParser x
-                                                                 , opTable = calgary2019OpTable
-                                                                 , finalValidation = \x -> if isOpenFormula x then unexpected "unbound variable" else return ()
-                                                                 }
+thomasBolducAndZachFOL2019ParserOptions = thomasBolducAndZachFOLParserOptions 
+                         { quantifiedSentenceParser' = lplQuantifiedSentenceParser
+                         , functionParser = Just (\x -> parseFunctionSymbol "abcdefghijklmnopqrst" x)
+                         , atomicSentenceParser = 
+                                \x -> try (parsePredicateSymbol "ABCDEFGHIJKLMNOPQRSTUVWXYZ" x) 
+                                      <|> try (sentenceLetterParser "ABCDEFGHIJKLMNOPQRSTUVWXYZ")
+                                      <|> try (equalsParser x)
+                                      <|> inequalityParser x
+                         , opTable = calgary2019OpTable
+                         }
 
 bergmannMoorAndNelsonFOLParserOptions :: FirstOrderParserOptions PureLexiconFOL u Identity
 bergmannMoorAndNelsonFOLParserOptions = FirstOrderParserOptions 
@@ -317,6 +320,9 @@ gallowPLFormulaParser = parserFromOptions gallowPLParserOptions
 
 thomasBolducAndZachFOLFormulaParser :: Parsec String u PureFOLForm
 thomasBolducAndZachFOLFormulaParser = parserFromOptions thomasBolducAndZachFOLParserOptions
+
+thomasBolducAndZachFOL2019FormulaParserStrict :: Parsec String u PureFOLForm
+thomasBolducAndZachFOL2019FormulaParserStrict = parserFromOptions thomasBolducAndZachFOL2019ParserOptionsStrict
 
 gamutNDFormulaParser :: Parsec String u PureFOLForm
 gamutNDFormulaParser = parserFromOptions gamutNDParserOptions

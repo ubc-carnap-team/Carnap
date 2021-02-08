@@ -33,11 +33,11 @@ library
                      Handler.Chapter
                      Handler.Book
                      Handler.Command
-                     Handler.Hashed
                      Handler.Rule
                      Handler.Review
                      Handler.Assignment
                      Handler.Document
+                     Handler.Serve
                      Filter.RenderFormulas
                      Filter.Randomize
                      Filter.Sidenotes
@@ -51,17 +51,18 @@ library
                      Filter.TruthTrees
                      Filter.CounterModelers
                      Filter.Qualitative
-                     Filter.Diagrams
                      Filter.Util
                      Util.Handler
                      Util.Database
+                     Util.LTI
                      Util.Data
+                     Util.Grades
 
     if flag(dev) || flag(library-only)
         cpp-options:   -DDEVELOPMENT
-        ghc-options:   -Wall -fwarn-tabs -O0 -dth-dec-file
+        ghc-options:   -Wall -fwarn-tabs -O0 -dth-dec-file -Wno-name-shadowing
     else
-        ghc-options:   -Wall -fwarn-tabs -O2 -dth-dec-file
+        ghc-options:   -Wall -fwarn-tabs -O2 -dth-dec-file -Wno-name-shadowing
 
     extensions: TemplateHaskell
                 QuasiQuotes
@@ -130,13 +131,9 @@ library
                  , mtl
                  , transformers
                  , blaze-html
+                 , tagsoup
                  , lucid
                  , linear
-                 , diagrams
-                 , diagrams-lib
-                 , diagrams-svg
-                 , svg-builder
-                 , diagrams-builder
                  , filepath
                  , hashable
                  , lens

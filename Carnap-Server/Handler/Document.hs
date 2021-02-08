@@ -4,8 +4,7 @@ import Import
 import System.Directory (doesFileExist,getDirectoryContents)
 import Yesod.Markdown
 import Data.List (nub)
-import Text.Pandoc (writerExtensions,writerWrapText, WrapOption(..), readerExtensions, Pandoc(..), lookupMeta)
-import Text.Pandoc.Walk (walkM, walk)
+import Text.Pandoc (lookupMeta)
 import Text.Julius (juliusFile,rawJS)
 import TH.RelativePaths (pathRelativeToCabalPackage)
 import System.FilePath
@@ -105,27 +104,36 @@ getDocumentR ident title = do (Entity key doc, path, creatorid) <- retrieveDoc i
                                    | otherwise -> returnFile path
 
     where returnFile path = do
-              ehtml <- liftIO $ fileToHtml path
+              ehtml <- liftIO $ fileToHtml allFilters path
               case ehtml of
                   Left err -> defaultLayout $ minimalLayout (show err)
                   Right (Left err,_) -> defaultLayout $ minimalLayout (show err)
                   Right (Right html, meta) -> do
+                      mbcss <- retrievePandocVal (lookupMeta "base-css" meta)
                       mcss <- retrievePandocVal (lookupMeta "css" meta)
                       mjs <- retrievePandocVal (lookupMeta "js" meta)
-                      defaultLayout $ do
+                      let theLayout = \widget -> case mbcss of 
+                                       Nothing -> defaultLayout $ do mapM addStylesheet [StaticR css_bootstrapextra_css] 
+                                                                     widget
+                                       Just bcss -> cleanLayout $ do mapM addStylesheetRemote bcss 
+                                                                     widget
+                      theLayout $ do
                           toWidgetHead $(juliusFile =<< pathRelativeToCabalPackage "templates/command.julius")
                           addScript $ StaticR js_proof_js
                           addScript $ StaticR js_popper_min_js
                           addScript $ StaticR ghcjs_rts_js
                           addScript $ StaticR ghcjs_allactions_lib_js
                           addScript $ StaticR ghcjs_allactions_out_js
-                          maybe (pure [()]) (mapM (addScriptRemote))  mjs
+                          maybe (pure [()]) (mapM addScriptRemote) mjs
+
+                          -- Scripts to insert Rudolf truth-tree widget
+                          addStylesheetRemote "https://unpkg.com/truth-tree/dist/lib.css"
+                          addScript $ StaticR js_createTrees_js
+
                           addStylesheet $ StaticR css_tree_css
                           addStylesheet $ StaticR css_proof_css
                           addStylesheet $ StaticR css_exercises_css
-                          case mcss of
-                              Nothing -> mapM addStylesheet [StaticR css_bootstrapextra_css]
-                              Just ss -> mapM addStylesheetRemote ss
+                          maybe (pure [()]) (mapM addStylesheetRemote) mcss
                           $(widgetFile "document")
                           addScript $ StaticR ghcjs_allactions_runmain_js
 
@@ -146,14 +154,6 @@ retrieveDoc ident title = do userdir <- getUserDir ident
                                      case mdoc of
                                          Nothing -> setMessage "metadata for this document not found" >> notFound
                                          Just doc -> return (doc, path, creatoruid)
-
-fileToHtml path = do Markdown md <- markdownFromFile path
-                     let md' = Markdown (filter ((/=) '\r') md) --remove carrage returns from dos files
-                     case parseMarkdown yesodDefaultReaderOptions { readerExtensions = carnapPandocExtensions } md' of
-                         Right pd -> do let pd'@(Pandoc meta _)= walk allFilters pd
-                                        return $ Right $ (write pd', meta)
-                         Left e -> return $ Left e
-    where write = writePandocTrusted yesodDefaultWriterOptions { writerExtensions = carnapPandocExtensions, writerWrapText = WrapPreserve }
 
 getUserDir ident = do master <- getYesod
                       return $ (appDataRoot $ appSettings master) </> "documents" </> unpack ident

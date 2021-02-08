@@ -10,6 +10,7 @@ import Data.Time
 import qualified Data.Map as M
 import Data.Aeson (decode,encode,Value(..))
 import Text.Read (readMaybe)
+import Text.HTML.TagSoup
 import Text.Pandoc (Extension(..), extensionsFromList)
 import Carnap.GHCJS.SharedTypes(ProblemSource(..),ProblemType(..),ProblemData(..), SomeRule(..))
 import Carnap.GHCJS.SharedFunctions(inOpts, rewriteWith)
@@ -104,6 +105,8 @@ carnapPandocExtensions = extensionsFromList
         , Ext_task_lists
         , Ext_link_attributes
         , Ext_bracketed_spans
+        , Ext_fenced_divs
+        , Ext_startnum
         ]
 
 toTime :: String -> UTCTime
@@ -113,6 +116,8 @@ laterThan :: UTCTime -> UTCTime -> Bool
 laterThan t1 t2 = diffUTCTime t1 t2 > 0
 
 jsonSerialize = decodeUtf8 . encode
+
+jsonDeSerialize = decode . encodeUtf8 . fromStrict
 
 rewriteText opts = pack . rewriteWith opts . unpack
 
@@ -136,9 +141,10 @@ displayProblemData (TruthTableDataOpts t _ opts') = maybe (rewriteText opts t) p
                                                       ++ intercalate "," (map (rewriteWith opts . show) gs)
           s = unpack t
 displayProblemData (TranslationData t _) = "-"
-displayProblemData (TranslationDataOpts _ _ opts) = case lookup "problem" opts of
-                                                        Just p -> pack p
-                                                        Nothing -> "-"
+displayProblemData (TranslationDataOpts _ _ opts) = maybe "-" id $ 
+                                                        lookup "problem" opts 
+                                                        >>= headMay . parseTags . pack 
+                                                        >>= maybeTagText
 displayProblemData (QualitativeMultipleSelection t _ _) = t
 displayProblemData (QualitativeProblemDataOpts t _ opts) = t
 displayProblemData (QualitativeNumericalData t _ _) = t

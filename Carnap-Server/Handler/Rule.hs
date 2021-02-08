@@ -81,8 +81,15 @@ ruleLayout widget = do
         master <- getYesod
         mmsg <- getMessage
         authmaybe <- maybeAuth
-        instructors <- instructorIdentList
-        pc     <- widgetToPageContent $ do
+        (isInstructor, mdoc, mcourse) <- case authmaybe of
+            Nothing -> return (False, Nothing, Nothing)
+            Just uid -> runDB $ do
+                mud <- getBy $ UniqueUserData $ entityKey uid
+                mcour <- maybe (return Nothing) get (mud >>= userDataEnrolledIn . entityVal)
+                masgn <- maybe (return Nothing) get (mcour >>= courseTextBook)
+                mdoc <- maybe (return Nothing) get (assignmentMetadataDocument <$> masgn)
+                return (not $ null (mud >>= userDataInstructorId . entityVal), mdoc, mcour)
+        pc <- widgetToPageContent $ do
             toWidgetHead $(juliusFile =<< pathRelativeToCabalPackage "templates/command.julius")
             addScript $ StaticR ghcjs_rts_js
             addScript $ StaticR ghcjs_allactions_lib_js
@@ -93,7 +100,7 @@ ruleLayout widget = do
             addStylesheet $ StaticR css_exercises_css
             $(widgetFile "default-layout")
             addScript $ StaticR ghcjs_allactions_runmain_js
-        withUrlRenderer $(hamletFile "templates/default-layout-wrapper.hamlet")
+        withUrlRenderer $(hamletFile =<< pathRelativeToCabalPackage "templates/default-layout-wrapper.hamlet")
 
 getPropDrList = do maybeCurrentUserId <- maybeAuthId
                    case maybeCurrentUserId of

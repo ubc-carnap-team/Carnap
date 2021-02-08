@@ -21,7 +21,7 @@ import Carnap.Languages.ClassicalSequent.Parser
 import Carnap.Languages.PurePropositional.Parser
 import Carnap.Languages.Util.LanguageClasses
 import Control.Monad.State
-import Text.Parsec (parse, Parsec, ParseError, choice, try, string)
+import Text.Parsec (Parsec, ParseError)
 
 --------------------------------------------------------
 --1. Data For Natural Deduction
@@ -407,6 +407,7 @@ type SupportsND r lex sem =
     , Schematizable (lex (ClassicalSequentOver lex))
     , PrismLink (lex (FixLang lex)) (SubstitutionalVariable (FixLang lex))
     , PrismLink (lex (ClassicalSequentOver lex)) (SubstitutionalVariable (ClassicalSequentOver lex))
+    , FirstOrderLex (lex (FixLang lex))
     , FirstOrderLex (lex (ClassicalSequentOver lex))
     , ParsableLex sem lex
     , CopulaSchema (FixLang lex)

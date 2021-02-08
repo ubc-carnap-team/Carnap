@@ -159,7 +159,9 @@ magnusNotation x = case runParser altparser 0 "" x of
     where altparser = do s <- handlecon <|> try handleatom <|> handleLParen <|> handleRParen <|> fallback
                          rest <- (eof >> return "") <|> altparser
                          return $ s ++ rest
-          handlecon = char '∧' >> return "&"
+          handlecon = (char '∧' >> return "&")
+                  <|> (char '⊤' >> return " ")
+                  <|> (char '∅' >> return " ")
           handleatom = do c <- oneOf "ABCDEFGHIJKLMNOPQRSTUVWXYZ" <* char '('
                           args <- oneOf "abcdefghijklmnopqrstuvwxyz" `sepBy` char ','
                           char ')'
@@ -282,9 +284,9 @@ instance Inference MagnusSLPlus PurePropLexicon (Form Bool) where
 parseMagnusSLPlus :: RuntimeNaturalDeductionConfig PurePropLexicon (Form Bool) -> Parsec String u [MagnusSLPlus]
 parseMagnusSLPlus rtc = try plus <|> basic 
     where basic = map MSL <$> parseMagnusSL rtc
-          plus = do r <- choice (map (try . string) ["HYP","DIL","MT", "Comm", "DN", "MC", "↔ex", "<->ex", "DeM"])
+          plus = do r <- choice (map (try . string) ["HS","DIL","MT", "Comm", "DN", "MC", "↔ex", "<->ex", "DeM"])
                     case r of
-                        "HYP"   -> return [Hyp]
+                        "HS"    -> return [Hyp]
                         "DIL"   -> return [Dilemma]
                         "MT"    -> return [MT]
                         "Comm"  -> return [AndComm,CommAnd,OrComm,CommOr,IffComm,CommIff]

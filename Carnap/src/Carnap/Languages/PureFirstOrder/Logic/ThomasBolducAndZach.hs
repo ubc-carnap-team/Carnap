@@ -1,13 +1,13 @@
 {-#LANGUAGE  FlexibleContexts,  FlexibleInstances, MultiParamTypeClasses #-}
 module Carnap.Languages.PureFirstOrder.Logic.ThomasBolducAndZach 
-    ( thomasBolducAndZachFOLCalc, parseThomasBolducAndZachFOL, ThomasBolducAndZachFOL
+    ( thomasBolducAndZachFOLCoreCalc, thomasBolducAndZachFOLCalc, parseThomasBolducAndZachFOL, ThomasBolducAndZachFOL
     , thomasBolducAndZachFOL2019Calc, parseThomasBolducAndZachFOLCore, ThomasBolducAndZachFOLCore
     , thomasBolducAndZachFOLPlus2019Calc
     ) where
 
 import Data.Map as M (lookup, Map,empty)
 import Text.Parsec
-import Carnap.Core.Data.Types (Form)
+import Carnap.Core.Data.Types (Form, Term)
 import Carnap.Languages.PureFirstOrder.Syntax
 import Carnap.Languages.PureFirstOrder.Parser
 import qualified Carnap.Languages.PurePropositional.Logic as P
@@ -69,7 +69,7 @@ instance Inference ThomasBolducAndZachFOLCore PureLexiconFOL (Form Bool) where
 
          premisesOf (TFLC x) = map liftSequent (premisesOf x)
          premisesOf r = upperSequents (ruleOf r)
-         
+
          conclusionOf (TFLC x) = liftSequent (conclusionOf x)
          conclusionOf r = lowerSequent (ruleOf r)
 
@@ -83,7 +83,7 @@ instance Inference ThomasBolducAndZachFOLCore PureLexiconFOL (Form Bool) where
          restriction EE2   = Just (eigenConstraint tau ((SS $ lsome "v" $ phi' 1) :-: SS (phin 1)) (fogamma 1 :+: fogamma 2))
          restriction (Pr prems) = Just (premConstraint prems)
          restriction _     = Nothing
-         
+
          globalRestriction (Left ded) n (TFLC TFL.CondIntro1) = Just $ fitchAssumptionCheck n ded [([phin 1], [phin 2])]
          globalRestriction (Left ded) n (TFLC TFL.CondIntro2) = Just $ fitchAssumptionCheck n ded [([phin 1], [phin 2])]
          globalRestriction (Left ded) n (TFLC TFL.BicoIntro1) = Just $ fitchAssumptionCheck n ded [([phin 1], [phin 2]), ([phin 2], [phin 1])]
@@ -98,6 +98,14 @@ instance Inference ThomasBolducAndZachFOLCore PureLexiconFOL (Form Bool) where
          globalRestriction (Left ded) n (TFLC TFL.NegeIntro2) = Just $ fitchAssumptionCheck n ded [([phin 1], [lfalsum])]
          globalRestriction (Left ded) n (TFLC TFL.Indirect1) = Just $ fitchAssumptionCheck n ded [([lneg $ phin 1], [lfalsum])]
          globalRestriction (Left ded) n (TFLC TFL.Indirect2) = Just $ fitchAssumptionCheck n ded [([lneg $ phin 1], [lfalsum])]
+         globalRestriction (Left ded) n UI = Just (notAssumedConstraint n ded (taun 1 :: FOLSequentCalc (Term Int)))
+         globalRestriction (Left ded) n r | r `elem` [EE1,EE2] = 
+            case dependencies (ded !! (n - 1)) of
+              Just ls -> firstDistinct ls
+              Nothing -> Nothing
+            where firstDistinct [] = Nothing
+                  firstDistinct ((a,b):xs) | a /= b = Just (notAssumedConstraint a ded (taun 1 :: FOLSequentCalc (Term Int)))
+                                           | otherwise = firstDistinct xs
          globalRestriction _ _ _ = Nothing
 
          isAssumption (TFLC x) = isAssumption x
@@ -117,7 +125,7 @@ instance Inference ThomasBolducAndZachFOL PureLexiconFOL (Form Bool) where
 
          premisesOf (TFL x) = map liftSequent (premisesOf x)
          premisesOf r = upperSequents (ruleOf r)
-         
+
          conclusionOf (TFL x) = liftSequent (conclusionOf x)
          conclusionOf r = lowerSequent (ruleOf r)
 
@@ -142,6 +150,7 @@ instance Inference ThomasBolducAndZachFOL PureLexiconFOL (Form Bool) where
          globalRestriction (Left ded) n (TFL (TFL.Core TFL.NegeIntro2)) = Just $ fitchAssumptionCheck n ded [([phin 1], [lfalsum])]
          globalRestriction (Left ded) n (TFL (TFL.Core TFL.Indirect1))  = Just $ fitchAssumptionCheck n ded [([lneg $ phin 1], [lfalsum])]
          globalRestriction (Left ded) n (TFL (TFL.Core TFL.Indirect2))  = Just $ fitchAssumptionCheck n ded [([lneg $ phin 1], [lfalsum])]
+         globalRestriction (Left ded) n (FOL UI) = Just (notAssumedConstraint n ded (taun 1 :: FOLSequentCalc (Term Int)))
          globalRestriction _ _ _ = Nothing
 
          isAssumption (TFL x) = isAssumption x
@@ -177,9 +186,22 @@ parseThomasBolducAndZachFOLPlus2019Proof ders = toDeductionFitch (parseThomasBol
 parseThomasBolducAndZachFOLProof :: RuntimeNaturalDeductionConfig PureLexiconFOL (Form Bool) -> String -> [DeductionLine ThomasBolducAndZachFOL PureLexiconFOL (Form Bool)]
 parseThomasBolducAndZachFOLProof ders = toDeductionFitch (parseThomasBolducAndZachFOL ders) thomasBolducAndZachFOLFormulaParser
 
+parseThomasBolducAndZachFOLCoreProof :: RuntimeNaturalDeductionConfig PureLexiconFOL (Form Bool) -> String -> [DeductionLine ThomasBolducAndZachFOLCore PureLexiconFOL (Form Bool)]
+parseThomasBolducAndZachFOLCoreProof ders = toDeductionFitch (parseThomasBolducAndZachFOLCore ders) thomasBolducAndZachFOLFormulaParser
+
 thomasBolducAndZachFOLCalc = mkNDCalc
     { ndRenderer = FitchStyle StandardFitch
     , ndParseProof = parseThomasBolducAndZachFOLProof
+    , ndProcessLine = hoProcessLineFitch
+    , ndProcessLineMemo = Just hoProcessLineFitchMemo
+    , ndParseSeq = parseSeqOver thomasBolducAndZachFOLFormulaParser
+    , ndParseForm = thomasBolducAndZachFOLFormulaParser
+    , ndNotation = ndNotation P.thomasBolducAndZachTFLCalc
+    }
+
+thomasBolducAndZachFOLCoreCalc = mkNDCalc
+    { ndRenderer = FitchStyle StandardFitch
+    , ndParseProof = parseThomasBolducAndZachFOLCoreProof
     , ndProcessLine = hoProcessLineFitch
     , ndProcessLineMemo = Just hoProcessLineFitchMemo
     , ndParseSeq = parseSeqOver thomasBolducAndZachFOLFormulaParser

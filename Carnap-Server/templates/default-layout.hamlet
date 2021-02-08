@@ -7,18 +7,26 @@
                 <li>
                     <a href=@{InfoR}>About
                 <li>
-                    <a href=@{BookR}>Book
+                    $maybe doc <- mdoc
+                        $maybe course <- mcourse
+                            <a href=@{CourseAssignmentR (courseTitle course) (documentFilename doc)}>Book
+                        $nothing
+                            <a href=@{BookR}>Book
+                    $nothing
+                        <a href=@{BookR}>Book
                 $maybe (Entity _ user) <- authmaybe
                     <li.dropdown>
                             <a href=@{UserDispatchR}>#{userIdent user}
                             <ul>
-                                $if elem (userIdent user) instructors
+                                <li>
+                                    <a href=@{UserR (userIdent user)}> User Home
+                                $if isInstructor
+                                    <li>
+                                        <a href=@{InstructorR (userIdent user)}> Instructor Home
                                     <li>
                                         <a href=@{DocumentsR}> Shared Documents
                                     <li>
-                                        <a href=@{InstructorR (userIdent user)}> Instructor Home
-                                <li>
-                                    <a href=@{UserR (userIdent user)}> User Home
+                                        <a href="@{ServeR "doc" ["index.md"]}"> Documentation
                                 <li>
                                     <a href=@{AuthR LogoutR}> Logout
                 $nothing
@@ -27,12 +35,20 @@
                             Login
 
 <div id="main" role="main">
-    $maybe msg <- mmsg
-      <div #message>#{msg}
+    <div.container>
+        $maybe msg <- mmsg
+          <div #message>
+              <strong>Message:
+              #{msg}
 
     ^{widget}
 <div.container>
     <footer>
-        An
-        <a#opentower href="https://open-tower.com"> Open Tower
-        \ project. #{appCopyright $ appSettings master}
+        <div.footer-item>
+            An
+            <a#opentower href="https://open-tower.com"> Open Tower
+            \ project. #{appCopyright $ appSettings master}
+        <div.footer-item>
+            This rendition of forall x is new at UBC as of 2020W2.<br/>
+            <a href="https://ubc.ca1.qualtrics.com/jfe/form/SV_0GRj4HPLvchXnHT">
+                If you have any feedback, suggestions or bugs, click here for our feedback form.
