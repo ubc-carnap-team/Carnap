@@ -1,9 +1,10 @@
-{ ghcjsVer ? "ghcjs",
-  ghcVer ? "ghc884",
+{ useClientFromCi ? false,
   profiling ? false,
   hls ? false,
 }:
 let
+  ghcjsVer = "ghcjs";
+  ghcVer = "ghc8104";
   sources = import ./nix/sources.nix;
 
   # We have this bifurcated setup because of a nixpkgs bug causing ghcjs to not
@@ -16,7 +17,13 @@ let
       config = {
         # yes, packages are broken, but we fix them ;-)
         allowBroken = true;
-      };
+      } // (if useClientFromCi then {
+        # this is a very evil hack: we replace our client nixpkgs with the
+        # macOS one so we can pull a client from cachix, as the macOS builder
+        # is the only one still working. this is OK on linux, as long as you
+        # don't actually have to build it....
+        system = "x86_64-darwin";
+      } else {});
       overlays = [
         (import ./nix/gitignore.nix { })
         (import ./nix/compose-haskell-overlays.nix {

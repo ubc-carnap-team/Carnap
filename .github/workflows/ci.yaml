@@ -19,6 +19,19 @@ jobs:
         # skip pushing to cachix if this is NOT a push to a branch (i.e. it is a PR)
         skipPush: ${{ github.event_name != 'push' }}
         signingKey: '${{ secrets.CACHIX_SIGNING_KEY }}'
+
+    - name: check if an alternate cachix is configured
+      id: alt_cachix
+      run: echo '::set-output name=alt_cachix::${{ secrets.ALT_CACHIX }}'
+
+      # use a second cachix if provided
+    - uses: cachix/cachix-action@v8
+      if: '${{ steps.alt_cachix.outputs.alt_cachix }}'
+      with:
+        name: '${{ secrets.ALT_CACHIX }}'
+        # skip pushing to cachix if this is NOT a push to a branch (i.e. it is a PR)
+        skipPush: ${{ github.event_name != 'push' }}
+        signingKey: '${{ secrets.ALT_CACHIX_SIGNING_KEY }}'
     # run it in serial because we are getting attacked by the OOM killer lol
     - run: nix-build -A client
     - run: nix-build -A server
