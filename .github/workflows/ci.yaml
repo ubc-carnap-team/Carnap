@@ -32,16 +32,20 @@ jobs:
         # skip pushing to cachix if this is NOT a push to a branch (i.e. it is a PR)
         skipPush: ${{ github.event_name != 'push' }}
         signingKey: '${{ secrets.ALT_CACHIX_SIGNING_KEY }}'
+
     # run it in serial because we are getting attacked by the OOM killer lol
     - run: nix-build -A client -o client-out
+
     - run: |
-      mkdir -p client-js/bin/
-      cp -R client-js/bin/AllActions.jsexe client-js/bin/AllActions.jsexe
-    - run: ls
+        mkdir -p client-js/bin/
+        cp -R client-js/bin/AllActions.jsexe client-js/bin/AllActions.jsexe
+
+    # upload an artefact of the client js so people can avoid building it.
     - uses: actions/upload-artifact@v2
       with:
         name: client-js
         path: client-js/
+
     - run: nix-build -A server
 
   docker-build:
