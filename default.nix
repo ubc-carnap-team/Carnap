@@ -31,6 +31,10 @@ let
   };
 
   client = nixpkgs-stable.haskell.packages."${ghcjsVer}".Carnap-GHCJS;
+  client-ci = nixpkgs.fetchzip {
+    url = "https://api.github.com/repos/ubc-carnap-team/Carnap/actions/artifacts/43812655/zip";
+    sha256 = "0000000000000000k9m9643s939k5iqdda0wsdk20h4zzq8wdy2j";
+  };
 
   nixpkgs = import sources.nixpkgs {
       config = {
@@ -42,7 +46,12 @@ let
         (import ./nix/compose-haskell-overlays.nix {
           inherit ghcVer;
           overlays = [
-            (import ./server.nix { inherit profiling; client = client.out; })
+            (import ./server.nix {
+              inherit profiling;
+              client = if useClientFromCi then
+                  client-ci
+                else client.out;
+            })
           ];
         })
       ];
