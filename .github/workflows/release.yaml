@@ -37,7 +37,8 @@ jobs:
     - run: |
         mkdir -p client-js/bin/
         cp -R client-out/bin/AllActions.jsexe client-js/bin/AllActions.jsexe
-        tar cvzf client-js.tar.gz client-js/bin
+        chmod -R u+w client-js
+        tar cvzf client-js.tar.gz client-js
 
     # upload an artefact of the client js so people can avoid building it.
     - uses: actions/create-release@v1
