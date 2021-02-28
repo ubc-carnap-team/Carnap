@@ -40,7 +40,7 @@ jobs:
         tar cvzf client-js.tar.gz client-js/bin
 
     # upload an artefact of the client js so people can avoid building it.
-    - uses: actions/create-release@v2
+    - uses: actions/create-release@v1
       id: create_release
       env:
         GITHUB_TOKEN: '${{ secrets.GITHUB_TOKEN }}'
