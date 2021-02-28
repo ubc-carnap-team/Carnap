@@ -34,6 +34,8 @@ jobs:
         signingKey: '${{ secrets.ALT_CACHIX_SIGNING_KEY }}'
     # run it in serial because we are getting attacked by the OOM killer lol
     - run: nix-build -A client -o client-out
+    - run: ls ..
+    - run: ls
     - uses: actions/upload-artifact@v2
       with:
         name: client-js
