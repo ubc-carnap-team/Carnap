@@ -38,7 +38,7 @@ jobs:
 
     - run: |
         mkdir -p client-js/bin/
-        cp -R client-js/bin/AllActions.jsexe client-js/bin/AllActions.jsexe
+        cp -R client-out/bin/AllActions.jsexe client-js/bin/AllActions.jsexe
 
     # upload an artefact of the client js so people can avoid building it.
     - uses: actions/upload-artifact@v2
