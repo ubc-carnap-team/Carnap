@@ -1,4 +1,4 @@
-{ client, persistent, withHoogle ? true, profiling ? false }:
+{ client, withHoogle ? true, profiling ? false }:
 { nixpkgs }:
 let
   inherit (nixpkgs.lib) gitignoreSource;

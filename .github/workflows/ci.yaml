@@ -33,7 +33,11 @@ jobs:
         skipPush: ${{ github.event_name != 'push' }}
         signingKey: '${{ secrets.ALT_CACHIX_SIGNING_KEY }}'
     # run it in serial because we are getting attacked by the OOM killer lol
-    - run: nix-build -A client
+    - run: nix-build -A client -o client-out
+    - uses: actions/upload-artifact@v2
+      with:
+        name: client-js
+        path: client-out/
     - run: nix-build -A server
 
   docker-build:

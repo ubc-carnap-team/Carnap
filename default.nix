@@ -1,4 +1,4 @@
-{ useClientFromCi ? false,
+args@{ useClientFromCi ? false,
   profiling ? false,
   hls ? false,
 }:
@@ -6,6 +6,7 @@ let
   ghcjsVer = "ghcjs";
   ghcVer = "ghc8104";
   sources = import ./nix/sources.nix;
+  traceV = v: builtins.trace v v;
 
   # We have this bifurcated setup because of a nixpkgs bug causing ghcjs to not
   # work on unstable:
@@ -14,26 +15,20 @@ let
   # nixpkgs after 20.03. So, the server is on unstable and the client side is
   # on 20.03. Duplication: likely pretty much just ghc.
   nixpkgs-stable = import sources.nixpkgs-stable {
-      config = {
-        # yes, packages are broken, but we fix them ;-)
-        allowBroken = true;
-      } // (if useClientFromCi then {
-        # this is a very evil hack: we replace our client nixpkgs with the
-        # macOS one so we can pull a client from cachix, as the macOS builder
-        # is the only one still working. this is OK on linux, as long as you
-        # don't actually have to build it....
-        system = "x86_64-darwin";
-      } else {});
-      overlays = [
-        (import ./nix/gitignore.nix { })
-        (import ./nix/compose-haskell-overlays.nix {
-          ghcVer = ghcjsVer;
-          overlays = [
-            (import ./client.nix { })
-          ];
-        })
-      ];
+    config = {
+      # yes, packages are broken, but we fix them ;-)
+      allowBroken = true;
     };
+    overlays = [
+      (import ./nix/gitignore.nix { })
+      (import ./nix/compose-haskell-overlays.nix {
+        ghcVer = ghcjsVer;
+        overlays = [
+          (import ./client.nix { })
+        ];
+      })
+    ];
+  };
 
   client = nixpkgs-stable.haskell.packages."${ghcjsVer}".Carnap-GHCJS;
 
@@ -47,7 +42,7 @@ let
         (import ./nix/compose-haskell-overlays.nix {
           inherit ghcVer;
           overlays = [
-            (import ./server.nix { inherit profiling client; inherit (sources) persistent; })
+            (import ./server.nix { inherit profiling client; })
           ];
         })
       ];
@@ -75,11 +70,11 @@ let
 
     # a ghc-based shell for development of Carnap and Carnap-Server
     # Carnap-GHCJS currently broken on ghc, see `server.nix` for details
-    ghcShell = nixpkgs.haskell.packages."${ghcVer}".shellFor {
+    ghcShell = builtins.trace [nixpkgs-stable.system useClientFromCi] (nixpkgs.haskell.packages."${ghcVer}".shellFor {
       packages = p: [ p.Carnap p.Carnap-Client p.Carnap-Server ];
       withHoogle = true;
       buildInputs = devtools { isGhcjs = false; };
-    };
+    });
 
     ghcjsShell = nixpkgs-stable.haskell.packages."${ghcjsVer}".shellFor {
       packages = p: [ p.Carnap p.Carnap-Client p.Carnap-GHCJS ];
