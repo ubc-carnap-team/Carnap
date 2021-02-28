@@ -59,10 +59,10 @@ newpkgs: oldpkgs: {
 
         echo ":: Copying js in $(pwd)"
         find static/ghcjs/allactions/ -type l -delete
-        cp ${client.out}/bin/AllActions.jsexe/all.js static/ghcjs/allactions/
-        cp ${client.out}/bin/AllActions.jsexe/out.js static/ghcjs/allactions/
-        cp ${client.out}/bin/AllActions.jsexe/lib.js static/ghcjs/allactions/
-        cp ${client.out}/bin/AllActions.jsexe/runmain.js static/ghcjs/allactions/
+        cp ${client}/bin/AllActions.jsexe/all.js static/ghcjs/allactions/
+        cp ${client}/bin/AllActions.jsexe/out.js static/ghcjs/allactions/
+        cp ${client}/bin/AllActions.jsexe/lib.js static/ghcjs/allactions/
+        cp ${client}/bin/AllActions.jsexe/runmain.js static/ghcjs/allactions/
         echo ":: Adding a universal settings file"
         cp config/settings-example.yml config/settings.yml
         cp -r {config,static} $out/share
